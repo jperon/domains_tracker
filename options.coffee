@@ -1,19 +1,23 @@
 # coffeelint: disable=max_line_length
 document.addEventListener 'DOMContentLoaded', ->
-  apiKeyInput = document.getElementById 'geminiApiKey'
+  geminiApiKeyInput = document.getElementById 'geminiApiKey'
+  groqApiKeyInput = document.getElementById 'groqApiKey'
   saveButton = document.getElementById 'saveButton'
   statusDiv = document.getElementById 'status'
 
-  # Load saved API key
-  chrome.storage.local.get 'geminiApiKey', (data) ->
+  # Load saved API keys
+  chrome.storage.local.get ['geminiApiKey', 'groqApiKey'], (data) ->
     if data.geminiApiKey
-      apiKeyInput.value = data.geminiApiKey
+      geminiApiKeyInput.value = data.geminiApiKey
+    if data.groqApiKey
+      groqApiKeyInput.value = data.groqApiKey
 
-  # Save API key on button click
+  # Save API keys on button click
   saveButton.addEventListener 'click', ->
-    apiKey = apiKeyInput.value
-    chrome.storage.local.set { geminiApiKey: apiKey }, ->
-      statusDiv.textContent = 'API Key saved.'
+    geminiApiKey = geminiApiKeyInput.value
+    groqApiKey = groqApiKeyInput.value
+    chrome.storage.local.set { geminiApiKey: geminiApiKey, groqApiKey: groqApiKey }, ->
+      statusDiv.textContent = 'Options: API Keys saved.'
       setTimeout (->
         statusDiv.textContent = ''
       ), 2000

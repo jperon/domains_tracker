@@ -1,6 +1,6 @@
 {
   "name": "network-address-collector",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "Extension de navigateur pour collecter les adresses réseau",
   "scripts": {
     "build:manifest": "js-yaml manifest.yaml > manifest.json",
@@ -12,7 +12,7 @@
     "build:options-js": "coffee -c options.coffee",
     "build:common": "npm-run-all build:popup build:background build:popup-js build:content-js build:options build:options-js",
     "build": "npm run build:common && npm run build:manifest",
-    "package": "npm run build && zip -r network-address-collector.zip manifest.json popup.html popup.js options.html options.js background.js content.js styles.css",
+    "package": "npm run build && zip -r network-address-collector.zip manifest.json popup.html popup.js options.html options.js background.js content.js styles.css icon.png",
     "publish:firefox": "npm run build && web-ext sign --source-dir . --api-key $WEB_EXT_API_KEY --api-secret $WEB_EXT_API_SECRET",
     "watch": "npm-run-all --parallel watch:*",
     "watch:manifest": "nodemon --watch manifest.yaml --exec \"npm run build:manifest\"",

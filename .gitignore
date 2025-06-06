@@ -1,0 +1,10 @@
+background.js
+content.js
+manifest.json
+network-address-collector.zip
+node_modules/
+options.html
+options.js
+package-lock.json
+popup.html
+popup.js

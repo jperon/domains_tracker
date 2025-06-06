@@ -22,6 +22,17 @@ h1 {
   margin-bottom: 15px; /* Add space below buttons */
 }
 
+#message-container {
+  display: flex;
+  flex-direction: column;
+  /* Add some margin around the message container */
+  margin: 0 10px; /* Adjust horizontal margin as needed */
+}
+
+#status-message {
+  margin-bottom: 5px; /* Space between status and fallback messages */
+}
+
 button {
   padding: 8px 15px;
   border: none;

@@ -7,7 +7,9 @@ html
     h1 Domain Tracker
     div#button-container
       button#copy-domains-button Copy
-      div#status-message(style='display: none;')
+      div#message-container
+        div#status-message(style='display: none;')
+        div#fallback-key-message(style='display: none;')
       button#clear-button Clear
     ul#domain-list
     button#show-json-button Show JSON Response

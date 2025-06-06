@@ -1,16 +1,15 @@
 # Network Address Collector
 
-Extension de navigateur minimaliste pour collecter automatiquement les adresses réseau (domaines) contactées lors de la navigation web. Utile pour créer des listes blanches de domaines de confiance ou analyser le trafic réseau.
+Extension de navigateur pour collecter les domaines contactés par chaque onglet et obtenir des descriptions générées par IA pour ces domaines.
 
 ## Fonctionnalités
 
-- **Collecte automatique** : Intercepte toutes les requêtes HTTP/HTTPS
-- **Filtrage intelligent** : Exclut les adresses locales et système
-- **Métadonnées détaillées** : Compteur d'accès, dates de première/dernière visite
-- **Interface intuitive** : Popup avec recherche, tri et statistiques
-- **Export de données** : Sauvegarde au format JSON
-- **Nettoyage automatique** : Suppression des données anciennes (30 jours)
-- **Multi-navigateur** : Compatible Firefox et Chrome (Manifest V3)
+- **Collecte de domaines par onglet** : Enregistre les domaines visités pour chaque onglet actif.
+- **Description par IA** : Utilise les APIs Gemini ou Groq pour générer des descriptions et des classifications (nécessaire, utile, optionnel, publicitaire, suivi, dangereux) pour les domaines externes.
+- **Interface Popup** : Affiche la liste des domaines collectés pour l'onglet actif avec leurs descriptions. Permet de copier les domaines sélectionnés et de vider la liste.
+- **Page d'Options** : Permet de configurer les clés API pour Gemini et Groq.
+- **Gestion des API Keys** : Utilise les clés API configurées ou une clé de secours pour Groq si aucune n'est fournie.
+- **Mise en cache des descriptions** : Stocke les descriptions obtenues par l'IA pour éviter les appels répétés pour les mêmes domaines.
 
 ## Structure du projet
 
@@ -147,7 +146,7 @@ Le fichier JSON exporté contient :
 Les données exportées peuvent être utilisées pour :
 
 1. **Filtrer par fréquence** : Domaines visités > X fois
-2. **Filtrer par récence** : Domaines vus dans les X derniers jours  
+2. **Filtrer par récence** : Domaines vus dans les X derniers jours
 3. **Analyse de confiance** : Domaines régulièrement utilisés
 4. **Integration** : Import dans des outils de sécurité réseau
 

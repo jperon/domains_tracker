@@ -22,6 +22,16 @@ chrome.webRequest.onCompleted.addListener (details) ->
       domains.push(domain)
       chrome.storage.local.set { [storageKey]: domains }, () ->
         console.log "Background: Added domain #{domain} to tab #{tabId}. Domains for tab #{tabId}:", domains
+        # Check if the updated tab is the active one and send a message to the popup
+        chrome.tabs.query { active: true, currentWindow: true }, (tabs) ->
+          activeTab = tabs[0]
+          # Send message to the popup for the tab where the request completed
+          console.log "Background: Attempting to send updatePopupDomains message to tab #{tabId} with domains:", domains # Added log
+          chrome.runtime.sendMessage { action: "updatePopupDomains", tabId: tabId, domains: domains }, () -> # Pass tabId in message
+            if chrome.runtime.lastError
+              # This error is expected if the popup is not open
+              # console.log "Background: Could not send updatePopupDomains message:", chrome.runtime.lastError.message
+              null # Suppress error logging when popup is closed
 
 , { urls: ["<all_urls>"] }
 
@@ -30,15 +40,6 @@ chrome.tabs.onRemoved.addListener (tabId, removeInfo) ->
   storageKey = "#{TAB_DOMAINS_STORAGE_PREFIX}#{tabId}"
   chrome.storage.local.remove storageKey, () ->
     console.log "Background: Cleaned up domains for closed tab #{tabId} from storage"
-
-# Clear domains for a tab when the main frame navigates
-chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
-  # Check if the update is a main frame navigation and the URL has changed
-  if changeInfo.url and changeInfo.status == 'loading' and tab.active
-    storageKey = "#{TAB_DOMAINS_STORAGE_PREFIX}#{tabId}"
-    chrome.storage.local.remove storageKey, () ->
-      console.log "Background: Cleared domains for tab #{tabId} on navigation to #{changeInfo.url}"
-
 
 # Listen for messages from the popup script
 chrome.runtime.onMessage.addListener (request, sender, sendResponse) ->
@@ -64,49 +65,74 @@ chrome.runtime.onMessage.addListener (request, sender, sendResponse) ->
 # Fetch available models at launch and store them
 # Function to fetch available models and store them
 fetchAndStoreModels = () ->
-  chrome.storage.local.get 'geminiApiKey', (data) ->
-    apiKey = data.geminiApiKey
-    if apiKey
-      fetch("https://generativelanguage.googleapis.com/v1/models?key=#{apiKey}")
-        .then (response) -> response.json()
-        .then (data) ->
-          if data.models
-            # Filter models to only include gemini models
-            geminiModels = data.models.filter (model) ->
-              model.name.startsWith("models/gemini-")
+  chrome.storage.local.get ['geminiApiKey', 'groqApiKey'], (data) ->
+    geminiApiKey = data.geminiApiKey
+    groqApiKey = data.groqApiKey
+    allModels = []
 
-            # Sort models by version number, highest first
-            sortedModels = geminiModels.sort (a, b) ->
-              getVersion = (modelName) ->
-                try
-                  # Extract version string (e.g., "1.5" from "models/gemini-pro-1.5")
-                  versionString = modelName.split('/').pop().split('-').pop()
-                  # Parse version parts into numbers (e.g., "1.5" -> [1, 5])
-                  versionString.split('.').map(Number)
-                catch
-                  # Handle cases where version cannot be extracted
-                  [0] # Treat as version 0 for sorting purposes
+    fetchGeminiModels = () ->
+      new Promise (resolve, reject) ->
+        if geminiApiKey
+          fetch("https://generativelanguage.googleapis.com/v1/models?key=#{geminiApiKey}")
+            .then (response) -> response.json()
+            .then (data) ->
+              if data.models
+                # Filter models to only include gemini models
+                geminiModels = data.models.filter (model) ->
+                  model.name.startsWith("models/gemini-")
+                console.log "Background: Fetched Gemini models:", geminiModels.map (m) -> m.name
+                resolve geminiModels
+              else
+                console.error "Background: Error fetching Gemini models: No models array in response", data
+                resolve [] # Resolve with empty array on error
+            .catch (err) ->
+              console.error "Background: Error fetching Gemini available models:", err
+              resolve [] # Resolve with empty array on error
+        else
+          console.warn "Background: Gemini API key not set. Skipping Gemini model fetch."
+          resolve [] # Resolve with empty array if no key
 
-              versionA = getVersion(a.name)
-              versionB = getVersion(b.name)
+    fetchGroqModels = () ->
+      new Promise (resolve, reject) ->
+        if groqApiKey
+          fetch("https://api.groq.com/openai/v1/models?free=true",
+            headers:
+              'Authorization': "Bearer #{groqApiKey}"
+          )
+            .then (response) -> response.json()
+            .then (data) ->
+              if data.data # Groq API returns models in a 'data' array
+                # Groq API already filters for free=true, no extra filtering needed here
+                groqModels = data.data
+                console.log "Background: Fetched Groq models:", groqModels.map (m) -> m.id
+                resolve groqModels
+              else
+                console.error "Background: Error fetching Groq models: No data array in response", data
+                resolve [] # Resolve with empty array on error
+            .catch (err) ->
+              console.error "Background: Error fetching Groq available models:", err
+              resolve [] # Resolve with empty array on error
+        else
+          console.warn "Background: Groq API key not set. Skipping Groq model fetch."
+          resolve [] # Resolve with empty array if no key
 
-              # Compare version parts numerically
-              maxLength = Math.max(versionA.length, versionB.length)
-              for i in [0...maxLength]
-                partA = versionA[i] || 0
-                partB = versionB[i] || 0
-                if partB != partA
-                  return partB - partA # Sort descending
+    # Fetch models from both APIs concurrently
+    Promise.all([fetchGeminiModels(), fetchGroqModels()])
+      .then ([geminiModels, groqModels]) ->
+        # Combine models from both APIs
+        allModels = geminiModels.concat(groqModels)
 
-              0 # Versions are equal
-            chrome.storage.local.set { availableModels: sortedModels }
-            console.log "Background: Available models fetched, filtered, and stored:", sortedModels.map (m) -> m.name
-          else
-            console.error "Background: Error fetching models: No models array in response", data
-        .catch (err) ->
-          console.error "Background: Error fetching available models:", err
-    else
-      console.warn "Background: Gemini API key not set. Cannot fetch available models."
+        # Sort models (optional, but good for consistency - can refine sorting later if needed)
+        # For now, a simple sort by name/id
+        sortedModels = allModels.sort (a, b) ->
+          nameA = a.name ? a.id # Use name for Gemini, id for Groq
+          nameB = b.name ? b.id
+          nameA.localeCompare(nameB)
+
+        chrome.storage.local.set { availableModels: sortedModels }, () ->
+          console.log "Background: All available models fetched and stored:", sortedModels.map (m) -> m.name ? m.id
+      .catch (err) ->
+        console.error "Background: Error combining or storing models:", err
 
 # Fetch available models when the background script starts
 fetchAndStoreModels()
