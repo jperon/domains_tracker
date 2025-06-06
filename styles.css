@@ -1,0 +1,135 @@
+/* styles.css */
+
+body {
+  font-family: 'Arial', sans-serif;
+  width: 400px; /* Adjust width as needed */
+  padding: 15px;
+  background-color: #f4f4f4;
+  color: #333;
+}
+
+h1 {
+  color: #0056b3;
+  font-size: 20px;
+  margin-bottom: 15px;
+  text-align: center;
+}
+
+#button-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 15px; /* Add space below buttons */
+}
+
+button {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s ease;
+}
+
+button#copy-domains-button {
+  background-color: #007bff;
+  color: white;
+}
+
+button#copy-domains-button:hover {
+  background-color: #0056b3;
+}
+
+button#clear-button {
+  background-color: #dc3545;
+  color: white;
+}
+
+button#clear-button:hover {
+  background-color: #c82333;
+}
+
+button#show-json-button {
+  background-color: #6c757d;
+  color: white;
+  margin-top: 10px;
+  width: 100%;
+}
+
+button#show-json-button:hover {
+  background-color: #5a6268;
+}
+
+
+#status-message {
+  margin-left: 10px; /* Space to the left of the message */
+  color: green; /* Keep the color */
+  display: none; /* Initially hidden */
+  font-size: 12px;
+}
+
+button#show-console-button {
+  background-color: #17a2b8; /* A different color for distinction */
+  color: white;
+  margin-top: 10px;
+  width: 100%;
+}
+
+button#show-console-button:hover {
+  background-color: #138496;
+}
+
+#console-output {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  background-color: #f9f9f9;
+  white-space: pre-wrap; /* Preserve whitespace and wrap text */
+  word-wrap: break-word; /* Break long words */
+  max-height: 200px; /* Limit height and add scroll if needed */
+  overflow-y: auto;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #333; /* Ensure text is readable */
+}
+
+#domain-list {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 15px;
+}
+
+#domain-list li {
+  background-color: #fff;
+  border: 1px solid #ddd;
+  margin-bottom: 5px;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+#domain-list li strong {
+  font-weight: bold;
+  color: #0056b3;
+}
+
+#json-response {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  background-color: #f9f9f9;
+  white-space: pre-wrap; /* Preserve whitespace and wrap text */
+  word-wrap: break-word; /* Break long words */
+  max-height: 200px; /* Limit height and add scroll if needed */
+  overflow-y: auto;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.brief-green {
+  color: green;
+}
+
+.brief-red {
+  color: red;
+}

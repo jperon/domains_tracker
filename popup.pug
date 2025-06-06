@@ -1,0 +1,17 @@
+doctype html
+html
+  head
+    title Domain Tracker
+    link(rel='stylesheet', href='styles.css')
+  body
+    h1 Domain Tracker
+    div#button-container
+      button#copy-domains-button Copy
+      div#status-message(style='display: none;')
+      button#clear-button Clear
+    ul#domain-list
+    button#show-json-button Show JSON Response
+    div#json-response(style='display: none;')
+    button#show-console-button Show Console
+    div#console-output(style='display: none;')
+    script(src='popup.js')
