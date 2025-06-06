@@ -27,8 +27,6 @@ console.error = (message) ->
 # coffeelint: disable=max_line_length
 # Constants for Groq API
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_FALLBACK_KEY = "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"
-GROQ_FALLBACK_MODEL = "llama3-8b-8192" # A common free Groq model
 
 console.log "Popup: DOMContentLoaded event fired. Initializing popup script."
 
@@ -188,7 +186,9 @@ determineApiConfig = (availableModels) ->
         apiKeyToUse = geminiApiKey
         console.log "Popup: Using Gemini API."
         if availableModels and availableModels.length > 0
-          modelsToUse = availableModels.filter (model) -> model.name.includes('gemini') # Filter for Gemini models
+          # Filter for Gemini models (assuming they have a 'name' property and include 'gemini') and map to name
+          modelsToUse = availableModels.filter (model) -> model? and typeof model == 'object' and model.name? and model.name.includes('gemini')
+          modelsToUse = modelsToUse.map (model) -> model.name
         else
           console.warn "Popup: No Gemini models found. Please check the background script."
       else if groqApiKey
@@ -196,31 +196,29 @@ determineApiConfig = (availableModels) ->
         apiKeyToUse = groqApiKey
         console.log "Popup: Using Groq API."
         if availableModels and availableModels.length > 0
-          modelsToUse = availableModels # Use all available models for Groq
+          # Filter for Groq models (assuming they have 'object: "model"' and an 'id') and map to id
+          modelsToUse = availableModels.filter (model) -> model? and typeof model == 'object' and model.object == 'model' and model.id?
+          modelsToUse = modelsToUse.map (model) -> model.id
         else
-          console.warn "Popup: No availableModels found. Using Groq fallback model."
-          modelsToUse = [{ name: GROQ_FALLBACK_MODEL }] # Use fallback model structure
-      else
-        apiTypeToUse = 'groq'
-        apiKeyToUse = GROQ_FALLBACK_KEY
-        fallbackKeyUsed = true
-        console.log "Popup: Using Groq API with fallback key."
-        # Display orange strong message (requires UI element in popup.pug)
+          console.warn "Popup: No availableModels found for Groq."
+          modelsToUse = [] # No fallback model
+
+      # If no API key is set, display a message and return
+      if not apiKeyToUse
+        console.warn "Popup: No API key set. Please add one on the options page."
         fallbackMessageDiv = document.getElementById 'fallback-key-message'
         if fallbackMessageDiv
-          fallbackMessageDiv.innerHTML = "<strong><span style=\"color: orange;\">Please create your own API key<br/>(Groq on <a href=\"https://console.groq.com/keys\" target=\"_blank\">console.groq.com/keys</a><br/>or Gemini on <a href=\"https://aistudio.google.com/app/apikey\" target=\"_blank\">aistudio.google.com/app/apikey</a>)<br/>and add it on the <a href=\"options.html\" target=\"_blank\">options page</a> for better reliability.</span></strong>"
+          fallbackMessageDiv.innerHTML = "<strong><span style=\"color: orange;\">Please add your API key on the <a href=\"options.html\" target=\"_blank\">options page</a>.</span></strong>"
           fallbackMessageDiv.style.display = 'block'
+        # Resolve with empty config, the calling function handles this
+        resolve { apiTypeToUse: null, apiKeyToUse: null, modelsToUse: [], fallbackKeyUsed: false }
+      else
+        if modelsToUse.length == 0 and apiTypeToUse != null # Only warn if an API type was determined but no models found
+          console.warn "Popup: No suitable models found for API type #{apiTypeToUse}."
+        # Filter out any null or undefined models
+        modelsToUse = modelsToUse.filter (model) -> model?
 
-        if availableModels and availableModels.length > 0
-          modelsToUse = availableModels # Use all available models for Groq
-        else
-          console.warn "Popup: No availableModels found. Using Groq fallback model."
-          modelsToUse = [{ name: GROQ_FALLBACK_MODEL }] # Use fallback model structure
-
-      if modelsToUse.length == 0 and apiTypeToUse != null # Only warn if an API type was determined but no models found
-        console.warn "Popup: No suitable models found for API type #{apiTypeToUse}."
-
-      resolve { apiTypeToUse, apiKeyToUse, modelsToUse, fallbackKeyUsed }
+        resolve { apiTypeToUse, apiKeyToUse, modelsToUse, fallbackKeyUsed: false } # Set fallbackKeyUsed to false
 
 # Utility function to handle API response parsing and UI update
 handleApiResponse = (info, apiType, domainsToQuery, mainDomain, domainList, statusMessage) ->
@@ -378,6 +376,13 @@ fetchAndDisplayDescriptions = (domains, mainDomain, domainList, statusMessage) -
         attemptFetch = (index, statusMessage) ->
           # Get status message element locally
 
+          if modelsToUse.length == 0
+            console.warn "Popup: No suitable models available for API type #{apiTypeToUse}."
+            # Hide AI request status message
+            if statusMessage
+              statusMessage.style.display = 'none'
+            return # Stop the fetch attempt process
+
           if index >= modelsToUse.length
             console.error "Popup: All available models for #{apiTypeToUse} failed to fetch descriptions for domains."
             # Display a message indicating failure for all domains
@@ -398,7 +403,7 @@ fetchAndDisplayDescriptions = (domains, mainDomain, domainList, statusMessage) -
             return
 
           model = modelsToUse[index]
-          modelName = model.name # Use the full model name
+          modelName = model # Use the full model name (which is now a string)
 
           # Display AI request status message
           if statusMessage

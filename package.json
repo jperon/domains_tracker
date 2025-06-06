@@ -1,6 +1,6 @@
 {
   "name": "network-address-collector",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Extension de navigateur pour collecter les adresses réseau",
   "scripts": {
     "build:manifest": "js-yaml manifest.yaml > manifest.json",

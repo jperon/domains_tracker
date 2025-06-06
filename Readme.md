@@ -6,10 +6,10 @@ Extension de navigateur pour collecter les domaines contactés par chaque onglet
 
 - **Collecte de domaines par onglet** : Enregistre les domaines visités pour chaque onglet actif.
 - **Description par IA** : Utilise les APIs Gemini ou Groq pour générer des descriptions et des classifications (nécessaire, utile, optionnel, publicitaire, suivi, dangereux) pour les domaines externes.
-- **Interface Popup** : Affiche la liste des domaines collectés pour l'onglet actif avec leurs descriptions. Permet de copier les domaines sélectionnés et de vider la liste.
+- **Interface Popup** : Affiche la liste des domaines collectés pour l'onglet actif avec leurs descriptions. Permet de copier les domaines sélectionnés, de vider la liste pour l'onglet actif, d'afficher la réponse JSON brute de l'API, et d'afficher la sortie de la console.
 - **Page d'Options** : Permet de configurer les clés API pour Gemini et Groq.
-- **Gestion des API Keys** : Utilise les clés API configurées ou une clé de secours pour Groq si aucune n'est fournie.
-- **Mise en cache des descriptions** : Stocke les descriptions obtenues par l'IA pour éviter les appels répétés pour les mêmes domaines.
+- **Gestion des clés API** : Utilise les clés API configurées. Invite l'utilisateur à ajouter une clé si aucune n'est définie.
+- **Mise en cache des descriptions** : Stocke les descriptions générées par l'IA pour éviter les appels répétés pour les mêmes domaines pour l'onglet actif.
 
 ## Structure du projet
 
@@ -18,8 +18,8 @@ network-address-collector/
 ├── src/
 │   ├── manifest.yaml          # Configuration de l'extension
 │   ├── background.coffee      # Script de collecte principal
-│   ├── popup.pug             # Interface utilisateur
-│   └── popup.coffee          # Logique de l'interface
+│   ├── popup.pug             # Modèle d'interface utilisateur
+│   └── popup.coffee          # Logique de l'interface utilisateur
 ├── package.json
 └── README.md
 ```
@@ -34,37 +34,38 @@ Installez Node.js et les dépendances de développement :
 npm install
 ```
 
-### Transpilation des sources
+### Transpilation des fichiers source
 
-L'extension utilise des langages de préprocessing qui doivent être transpilés :
+L'extension utilise des langages de préprocesseur qui doivent être transpilés :
 
 #### 1. YAML vers JSON (Manifest)
 ```bash
-# Installation globale du transpileur YAML
+# Installer le transpileur YAML globalement
 npm install -g js-yaml
 
-# Transpilation du manifest
-js-yaml manifest.yaml > manifest.json
+# Transpiler le manifest
+js-yaml src/manifest.yaml > src/manifest.json
 ```
 
 #### 2. Pug vers HTML (Interface)
 ```bash
-# Installation globale de Pug CLI
+# Installer Pug CLI globalement
 npm install -g pug-cli
 
-# Transpilation du template
-pug popup.pug
-# Génère: popup.html
+# Transpiler les modèles
+pug src/popup.pug -o src/
+pug src/options.pug -o src/
+# Génère : src/popup.html, src/options.html
 ```
 
 #### 3. CoffeeScript vers JavaScript
 ```bash
-# Installation globale de CoffeeScript
+# Installer CoffeeScript globalement
 npm install -g coffeescript
 
-# Transpilation des scripts
-coffee -c background.coffee    # Génère: background.js
-coffee -c popup.coffee         # Génère: popup.js
+# Transpiler les scripts
+coffee -c src/background.coffee src/popup.coffee src/options.coffee src/content.coffee
+# Génère : src/background.js, src/popup.js, src/options.js, src/content.js
 ```
 
 ### Build automatisé
@@ -75,159 +76,83 @@ Utilisez les scripts npm pour automatiser la transpilation :
 # Build complet (une fois)
 npm run build
 
-# Watch mode (surveillance des changements)
+# Mode surveillance (surveille les changements)
 npm run watch
 
-# Nettoyage des fichiers générés
+# Nettoyer les fichiers générés
 npm run clean
 ```
 
 ### Installation dans le navigateur
 
-1. **Transpiler tous les fichiers** avec `npm run build`
+1. **Transpiler tous les fichiers** en utilisant `npm run build`.
 
 2. **Chrome/Chromium** :
-   - Aller à `chrome://extensions/`
-   - Activer le "Mode développeur"
-   - Cliquer "Charger l'extension non empaquetée"
-   - Sélectionner le dossier du projet
+   - Allez à `chrome://extensions/`
+   - Activez le "Mode développeur"
+   - Cliquez sur "Charger l'extension non empaquetée"
+   - Sélectionnez le dossier `src` du projet.
 
 3. **Firefox** :
-   - Aller à `about:debugging`
-   - Cliquer "Ce Firefox"
-   - Cliquer "Charger un module temporaire"
-   - Sélectionner le fichier `manifest.json`
+   - Allez à `about:debugging`
+   - Cliquez sur "Ce Firefox"
+   - Cliquez sur "Charger un module temporaire..."
+   - Sélectionnez le fichier `src/manifest.json`.
 
-## Usage
+## Utilisation
 
 ### Collecte automatique
 
 L'extension commence à collecter automatiquement dès son installation :
 
-1. **Navigation normale** : Surfez comme d'habitude
-2. **Collecte transparente** : Les domaines sont enregistrés en arrière-plan
-3. **Pas d'impact performance** : Traitement asynchrone minimal
+1. **Navigation normale** : Naviguez comme d'habitude.
+2. **Collecte transparente** : Les domaines sont enregistrés en arrière-plan pour l'onglet actif.
+3. **Impact minimal sur les performances** : Traitement asynchrone en arrière-plan.
 
 ### Interface utilisateur
 
 Cliquez sur l'icône de l'extension pour ouvrir le popup :
 
-#### Statistiques
-- **Compteur total** d'adresses uniques collectées
-- **Dernière mise à jour** avec horodatage
-- **Fréquence d'accès** pour chaque domaine
+- Affiche une liste des domaines contactés par l'onglet actif.
+- Montre les descriptions et classifications générées par l'IA pour les domaines externes.
+- Permet de sélectionner des domaines via des cases à cocher.
+- **Bouton Copier** : Copie les domaines sélectionnés dans le presse-papiers.
+- **Bouton Effacer** : Efface les domaines collectés pour l'onglet actif.
+- **Bouton Afficher la réponse JSON** : Bascule la visibilité de la réponse JSON brute de l'API IA.
+- **Bouton Afficher la console** : Bascule la visibilité de la sortie de la console dans le popup.
 
-#### Fonctionnalités
-- **Recherche** : Filtrer les adresses par nom de domaine
-- **Tri automatique** : Par fréquence d'accès (plus utilisées en premier)
-- **Export JSON** : Sauvegarder toutes les données collectées
-- **Effacement** : Réinitialiser complètement les données
-
-### Export et analyse
-
-Le fichier JSON exporté contient :
-
-```json
-{
-  "addresses": ["example.com", "api.service.com", ...],
-  "addressData": {
-    "example.com": {
-      "firstSeen": 1640995200000,
-      "lastSeen": 1641081600000,
-      "count": 25
-    }
-  },
-  "exportDate": "2024-01-01T12:00:00.000Z"
-}
-```
-
-### Création de listes blanches
-
-Les données exportées peuvent être utilisées pour :
-
-1. **Filtrer par fréquence** : Domaines visités > X fois
-2. **Filtrer par récence** : Domaines vus dans les X derniers jours
-3. **Analyse de confiance** : Domaines régulièrement utilisés
-4. **Integration** : Import dans des outils de sécurité réseau
-
-### Gestion automatique
+## Gestion automatique
 
 L'extension gère automatiquement :
 
-- **Déduplication** : Pas de doublons dans la liste
-- **Nettoyage** : Suppression des entrées > 30 jours
-- **Filtrage** : Exclusion des domaines locaux/système
-- **Performance** : Traitement asynchrone en arrière-plan
+- **Déduplication** : Empêche les domaines en double dans la liste pour un onglet.
+- **Nettoyage** : Supprime les domaines collectés pour un onglet lorsque cet onglet est fermé.
 
-## Configuration
+## Sécurité et confidentialité
 
-### Personnalisation du filtrage
+### Données collectées
 
-Modifiez `background.coffee` pour ajuster les critères :
+- **Domaines uniquement** : Aucune URL complète ou contenu de page n'est collecté.
+- **Pas de contenu** : Aucune donnée de page n'est collectée.
+- **Requête IA** : Lorsque le popup est ouvert et qu'une clé API est configurée, l'extension envoie une requête à l'API (Gemini ou Groq) contenant la liste des domaines externes contactés par l'onglet actif. Cette requête demande à l'IA de fournir une courte explication ("why") et une classification ("brief" : nécessaire, utile, optionnel, publicitaire, suivi, dangereux) pour chaque domaine, au format JSON.
+- **Stockage local** : Les données sont stockées localement dans le stockage du navigateur et ne sont pas transmises à l'extérieur.
+- **Nettoyage automatique** : Les données pour un onglet sont supprimées lorsque l'onglet est fermé.
 
-```coffeescript
-isValidAddress: (address) ->
-  excluded = [
-    'localhost'
-    '127.0.0.1'
-    'votre-domaine-interne.local'  # Ajout personnalisé
-  ]
-  # Logique de filtrage...
-```
-
-### Durée de rétention
-
-Changez la période de nettoyage dans `background.coffee` :
-
-```coffeescript
-cleanup: ->
-  # 30 jours par défaut, modifiable
-  retentionDays = 30
-  cutoffTime = Date.now() - (retentionDays * 24 * 60 * 60 * 1000)
-```
+### Permissions requises
+- `webRequest` : Intercepter les requêtes réseau.
+- `storage` : Stocker les données localement.
+- `activeTab** : Obtenir des informations sur l'onglet actif.
+- `<all_urls>` : Accès à tous les domaines (lecture seule pour les requêtes web).
 
 ## Développement
 
 ### Architecture
 
-- **Manifest V3** : Compatibilité moderne navigateurs
-- **Service Worker** : Script background persistant
-- **Storage API** : Stockage local sécurisé navigateur
-- **WebRequest API** : Interception requêtes réseau
-
-### Debug
-
-1. **Console background** : `chrome://extensions/` → Détails → Inspecter les vues
-2. **Console popup** : Clic-droit sur popup → Inspecter
-3. **Logs** : `console.log` dans les scripts CoffeeScript
-
-### Tests
-
-```bash
-# Vérification syntaxe
-coffee --check background.coffee popup.coffee
-
-# Validation YAML
-js-yaml --version manifest.yaml
-
-# Validation HTML
-pug --check popup.pug
-```
-
-## Sécurité et confidentialité
-
-### Données collectées
-- **Domaines uniquement** : Pas d'URLs complètes
-- **Pas de contenu** : Aucune donnée de page
-- **Stockage local** : Pas de transmission externe
-- **Nettoyage automatique** : Suppression périodique
-
-### Permissions requises
-- `webRequest` : Interception requêtes réseau
-- `storage` : Sauvegarde locale données
-- `activeTab` : Information onglet actif
-- `<all_urls>` : Accès tous domaines (lecture seule)
+- **Manifest V3** : Compatibilité moderne des extensions de navigateur.
+- **Service Worker** : Script d'arrière-plan persistant.
+- **Storage API** : Stockage local sécurisé du navigateur.
+- **WebRequest API** : Intercepter les requêtes réseau.
 
 ## Licence
 
-MIT License - Libre d'utilisation et modification.
+Licence MIT - Libre d'utilisation et de modification.
