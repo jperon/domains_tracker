@@ -6,7 +6,7 @@ LOG_STORAGE_KEY = "extension_historical_logs"
 MAX_LOG_ENTRIES = 200 # Max number of log entries to keep
 SCRIPT_NAME = "background" # Identifier for logs from this script
 
-# --- Original Console Functions ---
+# --- Original Console Functions (capture them before overriding) ---
 originalConsoleLog = console.log
 originalConsoleWarn = console.warn
 originalConsoleError = console.error
@@ -38,8 +38,9 @@ storeLogEntry = (level, argsArray) ->
     message: formattedMessage
 
   chrome.storage.local.get [LOG_STORAGE_KEY], (data) ->
+    # Use optional chaining and nullish coalescing for safety with originalConsoleError
     if chrome.runtime.lastError
-      originalConsoleError.call(console, "#{SCRIPT_NAME}: Error retrieving logs for storage:", chrome.runtime.lastError.message)
+      originalConsoleError?.call(console, "#{SCRIPT_NAME}: Error retrieving logs for storage:", chrome.runtime.lastError.message)
       return
 
     logs = data[LOG_STORAGE_KEY] || []
@@ -51,9 +52,9 @@ storeLogEntry = (level, argsArray) ->
 
     chrome.storage.local.set { [LOG_STORAGE_KEY]: logs }, () ->
       if chrome.runtime.lastError
-        originalConsoleError.call(console, "#{SCRIPT_NAME}: Error saving new log entry:", chrome.runtime.lastError.message)
+        originalConsoleError?.call(console, "#{SCRIPT_NAME}: Error saving new log entry:", chrome.runtime.lastError.message)
       # else
-        # originalConsoleLog.call(console, "#{SCRIPT_NAME}: Log entry stored.") # Optional: confirm log storage
+        # originalConsoleLog?.call(console, "#{SCRIPT_NAME}: Log entry stored.") # Optional
 
 # --- Console Overrides ---
 console.log = (...args) ->
@@ -225,7 +226,7 @@ fetchAndStoreModels = () ->
   chrome.storage.local.get ['geminiApiKey', 'groqApiKey'], (data) ->
     geminiApiKey = data.geminiApiKey
     groqApiKey = data.groqApiKey
-    allModels = []
+    # allModels = [] # This variable is not used before reassignment in Promise.all
 
     fetchGeminiModels = () ->
       new Promise (resolve, reject) ->
@@ -275,26 +276,21 @@ fetchAndStoreModels = () ->
 
     # Fetch models from both APIs concurrently
     Promise.all([fetchGeminiModels(), fetchGroqModels()])
-      .then ([rawGeminiModels, rawGroqModels]) -> # Renamed to raw to signify they are unsorted
+      .then (([rawGeminiModels, rawGroqModels]) -> # Destructure directly here
 
         # Sort Gemini Models
-        # The filter for "models/gemini-" is already done in fetchGeminiModels
         sortedGeminiModels = rawGeminiModels.sort (a, b) ->
           scoreA = getGeminiSortScore(a.name)
           scoreB = getGeminiSortScore(b.name)
-          # Primary sort by score, secondary by name (alphabetical as tie-breaker)
           return scoreA - scoreB or a.name.localeCompare(b.name)
 
-        # Logging after sorting, using the now correctly defined getGeminiSortScore for consistent score display in log
         console.log "Background: Sorted Gemini Models (scores applied):", sortedGeminiModels.map (m) -> {name: m.name, finalScore: getGeminiSortScore(m.name)}
 
         # Sort Groq Models
-        # Groq models are already filtered in fetchGroqModels if needed
         sortedGroqModels = rawGroqModels.sort (a, b) ->
           scoreA = getGroqSortScore(a.id)
           scoreB = getGroqSortScore(b.id)
           if scoreA == scoreB
-            # Fallback to alphabetical for same score
             return a.id.localeCompare(b.id)
           return scoreA - scoreB
 
@@ -305,6 +301,7 @@ fetchAndStoreModels = () ->
 
         chrome.storage.local.set { availableModels: allSortedModels }, () ->
           console.log "Background: All available models fetched, sorted heuristically, and stored:", allSortedModels.map (m) -> m.name ? m.id
+      )
       .catch (err) ->
         console.error "Background: Error combining, sorting, or storing models:", err
 

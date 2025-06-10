@@ -1,9 +1,9 @@
-# Original Console Functions (global scope)
+# Original Console Functions (global scope, captured before any potential redefinition)
 originalConsoleLog = console.log
 originalConsoleWarn = console.warn
 originalConsoleError = console.error
 
-# Helper to stringify arguments (global scope, as it's used by console overrides immediately)
+# Helper to stringify arguments (global scope)
 stringifyArg = (arg) ->
   if arg is null then "null"
   else if typeof arg is 'undefined' then "undefined"
@@ -20,7 +20,7 @@ stringifyArg = (arg) ->
 # Constants for Groq API
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 
-# Utility function to parse JSON from AI response text
+# Utility function to parse JSON from AI response text (global scope)
 parseAIResponseJSON = (responseText) ->
   if not responseText or typeof responseText isnt 'string'
     throw new Error("Invalid response text provided for parsing.")
@@ -31,11 +31,13 @@ parseAIResponseJSON = (responseText) ->
     try
       return JSON.parse(jsonString)
     catch e
+      # Log to original console to avoid loops if overridden console.error itself has issues
+      originalConsoleError?.call(console, "Popup: JSON.parse failed for string:", jsonString, "Error:", e)
       throw new Error("Failed to parse JSON from response text. #{e.message}")
   else
     throw new Error("Could not find valid JSON object delimiters in response text.")
 
-# Utility function to call the Gemini API
+# Utility function to call the Gemini API (global scope)
 callGeminiApi = (modelName, apiKey, promptText) ->
   fetch("https://generativelanguage.googleapis.com/v1/models/#{modelName.split('/').pop()}:generateContent?key=#{apiKey}",
     method: 'POST'
@@ -49,7 +51,7 @@ callGeminiApi = (modelName, apiKey, promptText) ->
     if response.ok then response.json()
     else response.text().then (text) -> throw new Error("HTTP error! status: #{response.status}, body: #{text}")
 
-# Utility function to update the domain list with descriptions
+# Utility function to update the domain list with descriptions (global scope)
 updateDomainListWithDescriptions = (descriptions, domainListElement) ->
   briefOrder = ['necessary', 'useful', 'optional', 'ad', 'tracking', 'dangerous']
   domainArray = []
@@ -82,7 +84,7 @@ updateDomainListWithDescriptions = (descriptions, domainListElement) ->
     li.appendChild descriptionSpan
     domainListElement.appendChild li
 
-# Utility function to call the Groq API
+# Utility function to call the Groq API (global scope)
 callGroqApi = (modelName, apiKey, promptText) ->
   fetch(GROQ_API_URL,
     method: 'POST'
@@ -96,10 +98,12 @@ callGroqApi = (modelName, apiKey, promptText) ->
     if response.ok then response.json()
     else response.text().then (text) -> throw new Error("HTTP error! status: #{response.status}, body: #{text}")
   .catch (err) ->
+    # Use overridden console.error, which will also log to original console
     console.error "Popup: Fetch error in callGroqApi for model #{modelName}:", err
     throw err
 
-# Utility function to determine API configuration
+# Utility function to determine API configuration (global scope)
+# manageStatusFunc is passed in and expected to be defined in the caller's scope (DOMContentLoaded)
 determineApiConfig = (availableModels, manageStatusFunc) ->
   new Promise (resolve, reject) ->
     chrome.storage.local.get ['geminiApiKey', 'groqApiKey'], (data) ->
@@ -116,12 +120,12 @@ determineApiConfig = (availableModels, manageStatusFunc) ->
           modelsToUse = availableModels.filter((m) -> m?.object == 'model' and m.id?).map((m) -> m.id)
 
       if not apiKeyToUse
-        tempFallbackMessageDiv = document.getElementById 'fallback-key-message'
+        tempFallbackMessageDiv = document.getElementById 'fallback-key-message' # Get fresh
         if tempFallbackMessageDiv
           tempFallbackMessageDiv.innerHTML = "<strong><span style=\"color: orange;\">Please add your API key on the <a href=\"options.html\" target=\"_blank\">options page</a>.</span></strong>"
           tempFallbackMessageDiv.style.display = 'block'
           if manageStatusFunc then manageStatusFunc("", 'info')
-        else if manageStatusFunc
+        else if manageStatusFunc # Fallback if div not found by chance
           manageStatusFunc("Please add API key in options.", 'warn')
         resolve { apiTypeToUse: null, apiKeyToUse: null, modelsToUse: [] }
       else
@@ -139,7 +143,7 @@ document.addEventListener 'DOMContentLoaded', () ->
   statusMessageEl = document.getElementById 'status-message'
   copyDomainsButton = document.getElementById 'copy-domains-button'
   fallbackMessageDiv = document.getElementById 'fallback-key-message'
-  consoleFiltersDiv = document.getElementById 'console-filters' # New
+  consoleFiltersDiv = document.getElementById 'console-filters'
 
   # Filter Checkboxes
   filterScriptPopupCb = document.getElementById 'filter-script-popup'
@@ -149,37 +153,38 @@ document.addEventListener 'DOMContentLoaded', () ->
   filterLevelWarnCb = document.getElementById 'filter-level-warn'
   filterLevelErrorCb = document.getElementById 'filter-level-error'
 
-  # --- Log Management State & Constants ---
-  LOG_STORAGE_KEY = "extension_historical_logs"
+  # --- Log Management State & Constants (scoped to DOMContentLoaded) ---
+  LOG_STORAGE_KEY = "extension_historical_logs" # From background
   POPUP_SCRIPT_NAME = "popup"
   historicalLogs = []
   sessionLogs = []
   combinedAndSortedLogs = []
 
-  currentFilters =
-    scripts:
-      popup: true
-      background: true
-      options: true
-    levels:
-      log: true
-      warn: true
-      error: true
+  currentFilters = {
+    scripts: { popup: true, background: true, options: true },
+    levels: { log: true, warn: true, error: true }
+  }
 
-  let localLastApiResponse = null
-  let localDomainDescriptions = {}
-  let statusMessageTimeoutId = null
+  localLastApiResponse = null
+  localDomainDescriptions = {}
+  statusMessageTimeoutId = null
 
+  # --- Console Overrides & Log Management Functions (scoped to DOMContentLoaded) ---
   rebuildAndDisplayConsole = () ->
-    combinedLogs = historicalLogs.concat(sessionLogs)
+    if not consoleOutputDiv then return
+
+    # Ensure historicalLogs and sessionLogs are arrays before concat
+    actualHistoricalLogs = if Array.isArray(historicalLogs) then historicalLogs else []
+    actualSessionLogs = if Array.isArray(sessionLogs) then sessionLogs else []
+    combinedLogs = actualHistoricalLogs.concat(actualSessionLogs)
+
     combinedAndSortedLogs = combinedLogs.sort (a, b) -> a.timestamp - b.timestamp
 
-    if not consoleOutputDiv then return
     consoleOutputDiv.innerHTML = ''
 
     for logEntry in combinedAndSortedLogs
-      passesScriptFilter = currentFilters.scripts[logEntry.script]
-      passesLevelFilter = currentFilters.levels[logEntry.level]
+      passesScriptFilter = currentFilters.scripts[logEntry.script] ? false # Default to false if script key undefined
+      passesLevelFilter = currentFilters.levels[logEntry.level] ? false   # Default to false if level key undefined
 
       unless passesScriptFilter and passesLevelFilter
         continue
@@ -195,7 +200,7 @@ document.addEventListener 'DOMContentLoaded', () ->
     consoleOutputDiv.scrollTop = consoleOutputDiv.scrollHeight
 
   addSessionLogEntry = (level, argsArray) ->
-    formattedMessage = argsArray.map(stringifyArg).join(' ')
+    formattedMessage = argsArray.map(stringifyArg).join(' ') # stringifyArg is global
     logEntry =
       timestamp: Date.now()
       script: POPUP_SCRIPT_NAME
@@ -205,6 +210,7 @@ document.addEventListener 'DOMContentLoaded', () ->
     if consoleOutputDiv and consoleOutputDiv.style.display isnt 'none'
       rebuildAndDisplayConsole()
 
+  # Define console overrides (they use addSessionLogEntry from this scope)
   console.log = (...args) ->
     originalConsoleLog.apply(console, args)
     addSessionLogEntry('log', Array.from(args))
@@ -215,7 +221,7 @@ document.addEventListener 'DOMContentLoaded', () ->
     originalConsoleError.apply(console, args)
     addSessionLogEntry('error', Array.from(args))
 
-  console.log "Popup: DOMContentLoaded event fired. Initializing popup script."
+  console.log "Popup: DOMContentLoaded. Enhanced console initialized." # Initial test log
 
   fetchHistoricalAndDisplayLogs = () ->
     chrome.storage.local.get [LOG_STORAGE_KEY], (data) ->
@@ -436,8 +442,8 @@ document.addEventListener 'DOMContentLoaded', () ->
   updateFilterAndRedraw = (filterType, key, isChecked) ->
     if currentFilters[filterType]
       currentFilters[filterType][key] = isChecked
-      console.log "Filters updated:", currentFilters # For debugging
-      rebuildAndDisplayConsole() # Redraw with new filters
+      # console.log "Filters updated:", currentFilters # For debugging filters
+      rebuildAndDisplayConsole()
 
   if filterScriptPopupCb then filterScriptPopupCb.addEventListener 'change', (e) -> updateFilterAndRedraw('scripts', 'popup', e.target.checked)
   if filterScriptBackgroundCb then filterScriptBackgroundCb.addEventListener 'change', (e) -> updateFilterAndRedraw('scripts', 'background', e.target.checked)
@@ -449,10 +455,10 @@ document.addEventListener 'DOMContentLoaded', () ->
   showConsoleButton.addEventListener 'click', () ->
     if consoleOutputDiv.style.display == 'none'
       consoleOutputDiv.style.display = 'block'
-      if consoleFiltersDiv then consoleFiltersDiv.style.display = 'block' # Show filters
+      if consoleFiltersDiv then consoleFiltersDiv.style.display = 'block'
       showConsoleButton.textContent = 'Hide Console'
       fetchHistoricalAndDisplayLogs()
     else
       consoleOutputDiv.style.display = 'none'
-      if consoleFiltersDiv then consoleFiltersDiv.style.display = 'none' # Hide filters
+      if consoleFiltersDiv then consoleFiltersDiv.style.display = 'none'
       showConsoleButton.textContent = 'Show Console'
