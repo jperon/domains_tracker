@@ -3,32 +3,54 @@ originalConsoleLog = console.log
 originalConsoleWarn = console.warn
 originalConsoleError = console.error
 
-appendConsoleMessage = (message, level = 'log') ->
-  consoleOutputDiv = document.getElementById 'console-output' # This one is fine here as it's self-contained
+# Helper function to stringify arguments for custom console
+stringifyArg = (arg) ->
+  if arg is null then "null"
+  else if typeof arg is 'undefined' then "undefined"
+  else if typeof arg is 'object' or Array.isArray(arg)
+    try
+      return JSON.stringify(arg, null, 2) # Pretty print objects/arrays
+    catch e
+      # Handle circular references or other stringify errors
+      if arg.toString then return arg.toString() # Standard [object Object] or array content
+      else return "[Unserializable Object]"
+  else
+    return String(arg) # Ensure it's a string
+
+appendConsoleMessage = (formattedMessage, level = 'log') ->
+  consoleOutputDiv = document.getElementById 'console-output'
   if consoleOutputDiv
     messageElement = document.createElement 'div'
-    messageElement.textContent = message
-    messageElement.classList.add "console-#{level}"
+    messageElement.style.whiteSpace = 'pre-wrap' # Allow multi-line and preserve spaces
+    messageElement.textContent = formattedMessage # Message is now pre-formatted
+    messageElement.classList.add "console-#{level}" # For potential CSS styling
     consoleOutputDiv.appendChild messageElement
-    consoleOutputDiv.scrollTop = consoleOutputDiv.scrollHeight
+    consoleOutputDiv.scrollTop = consoleOutputDiv.scrollHeight # Auto-scroll
 
-console.log = (message) ->
-  appendConsoleMessage("Popup: LOG: " + message, 'log')
-  originalConsoleLog.apply(console, arguments)
+console.log = ->
+  args = Array.from(arguments)
+  processedMessages = args.map (arg) -> stringifyArg(arg)
+  fullMessage = processedMessages.join(' ')
+  appendConsoleMessage("Popup: LOG: " + fullMessage, 'log')
+  originalConsoleLog.apply(console, arguments) # Call original for browser console
 
-console.warn = (message) ->
-  appendConsoleMessage("Popup: WARN: " + message, 'warn')
+console.warn = ->
+  args = Array.from(arguments)
+  processedMessages = args.map (arg) -> stringifyArg(arg)
+  fullMessage = processedMessages.join(' ')
+  appendConsoleMessage("Popup: WARN: " + fullMessage, 'warn')
   originalConsoleWarn.apply(console, arguments)
 
-console.error = (message) ->
-  appendConsoleMessage("Popup: ERROR: " + message, 'error')
+console.error = ->
+  args = Array.from(arguments)
+  processedMessages = args.map (arg) -> stringifyArg(arg)
+  fullMessage = processedMessages.join(' ')
+  appendConsoleMessage("Popup: ERROR: " + fullMessage, 'error')
   originalConsoleError.apply(console, arguments)
 
 # coffeelint: disable=max_line_length
 # Constants for Groq API
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-
-# console.log "Popup: DOMContentLoaded event fired. Initializing popup script." # Moved inside DOMContentLoaded
 
 # Utility function to parse JSON from AI response text
 parseAIResponseJSON = (responseText) ->
@@ -41,7 +63,7 @@ parseAIResponseJSON = (responseText) ->
     try
       return JSON.parse(jsonString)
     catch e
-      console.error "Popup: JSON.parse failed for string:", jsonString, "Error:", e
+      # console.error "Popup: JSON.parse failed for string:", jsonString, "Error:", e # Already logged by console.error override
       throw new Error("Failed to parse JSON from response text. #{e.message}")
   else
     throw new Error("Could not find valid JSON object delimiters in response text.")
@@ -107,7 +129,7 @@ callGroqApi = (modelName, apiKey, promptText) ->
     if response.ok then response.json()
     else response.text().then (text) -> throw new Error("HTTP error! status: #{response.status}, body: #{text}")
   .catch (err) ->
-    console.error "Popup: Fetch error in callGroqApi for model #{modelName}:", err
+    console.error "Popup: Fetch error in callGroqApi for model #{modelName}:", err # Will be formatted
     throw err
 
 # Utility function to determine API configuration
@@ -127,14 +149,13 @@ determineApiConfig = (availableModels, manageStatusFunc) ->
           modelsToUse = availableModels.filter((m) -> m?.object == 'model' and m.id?).map((m) -> m.id)
 
       if not apiKeyToUse
-        # The manageStatusFunc might involve DOM manipulation, ensure it's robust if called early
-        # Or, ensure fallbackMessageDiv is accessible if determineApiConfig is called before DOM fully ready for that element
-        fallbackMessageDiv = document.getElementById 'fallback-key-message' # Get it here, as manageStatusFunc might not have it
-        if fallbackMessageDiv
+        fallbackMessageDiv = document.getElementById 'fallback-key-message'
+        if fallbackMessageDiv # Try to use specific div for this message
           fallbackMessageDiv.innerHTML = "<strong><span style=\"color: orange;\">Please add your API key on the <a href=\"options.html\" target=\"_blank\">options page</a>.</span></strong>"
           fallbackMessageDiv.style.display = 'block'
-        else
-          manageStatusFunc("Please add your API key on the options page.", 'warn') # Fallback if div not found
+          manageStatusFunc("", 'info') # Clear generic status message if specific one is shown
+        else # Fallback to generic status message
+          manageStatusFunc("Please add your API key on the <a href=\"options.html\" target=\"_blank\">options page</a>. (HTML will not render here)", 'warn')
         resolve { apiTypeToUse: null, apiKeyToUse: null, modelsToUse: [] }
       else
         modelsToUse = modelsToUse.filter (model) -> model?
@@ -142,13 +163,12 @@ determineApiConfig = (availableModels, manageStatusFunc) ->
 
 document.addEventListener 'DOMContentLoaded', () ->
   console.log "Popup: DOMContentLoaded event fired. Initializing popup script."
-  # Cached DOM Elements
   domainListEl = document.getElementById 'domain-list'
   clearButton = document.getElementById 'clear-button'
   showJsonButton = document.getElementById 'show-json-button'
   jsonResponseDiv = document.getElementById 'json-response'
   showConsoleButton = document.getElementById 'show-console-button'
-  consoleOutputDiv = document.getElementById 'console-output'
+  # consoleOutputDiv is handled by appendConsoleMessage directly
   statusMessageEl = document.getElementById 'status-message'
   copyDomainsButton = document.getElementById 'copy-domains-button'
   fallbackMessageDiv = document.getElementById 'fallback-key-message'
@@ -159,12 +179,22 @@ document.addEventListener 'DOMContentLoaded', () ->
 
   manageStatusMessage = (messageText, type = 'info', duration = null) ->
     if statusMessageEl
+      # If messageText is intended to be HTML, this needs to be innerHTML
+      # For now, assuming messageText from new console overrides is pre-formatted string
       statusMessageEl.textContent = messageText
       if type == 'error' then statusMessageEl.style.color = 'red'
       else if type == 'warn' then statusMessageEl.style.color = 'orange'
       else statusMessageEl.style.color = 'black'
-      if messageText == "" then statusMessageEl.style.display = 'none'
-      else statusMessageEl.style.display = 'block'
+
+      if messageText == "" or messageText == null
+        statusMessageEl.style.display = 'none'
+      else
+        statusMessageEl.style.display = 'block'
+        # If specific fallback message is showing, and this is a new status, hide fallback
+        if fallbackMessageDiv and fallbackMessageDiv.style.display == 'block' and messageText isnt fallbackMessageDiv.textContent
+          fallbackMessageDiv.style.display = 'none'
+
+
       if statusMessageTimeoutId then clearTimeout(statusMessageTimeoutId)
       statusMessageTimeoutId = null
       if duration and typeof duration == 'number'
@@ -172,7 +202,7 @@ document.addEventListener 'DOMContentLoaded', () ->
           statusMessageEl.style.display = 'none'
           statusMessageEl.textContent = ''
         ), duration
-    else originalConsoleError("Status message element not found in manageStatusMessage")
+    # else originalConsoleError("Status message element not found in manageStatusMessage") # Avoid using overridden console.error
 
   handleApiResponse = (info, apiType, domainsToQuery, mainDomain) ->
     localLastApiResponse = info
@@ -190,11 +220,11 @@ document.addEventListener 'DOMContentLoaded', () ->
         manageStatusMessage("Descriptions loaded.", 'success', 3000)
         return true
       catch e
-        console.error "Popup: Failed to parse API response JSON:", e
-        manageStatusMessage("Error parsing AI response.", 'error', 5000)
+        console.error "Popup: Failed to parse API response JSON:", e # Formatted
+        manageStatusMessage("Error parsing AI response. Check console.", 'error', 5000) # User-friendly
         throw e
     else
-      manageStatusMessage("Empty response from AI.", 'error', 5000)
+      manageStatusMessage("Empty response from AI. Check console.", 'error', 5000) # User-friendly
       throw new Error("API response does not contain description text.")
 
   fetchAndDisplayDescriptions = (domains, mainDomain) ->
@@ -210,9 +240,9 @@ document.addEventListener 'DOMContentLoaded', () ->
         return
       determineApiConfig(availableModels, manageStatusMessage)
         .then (({ apiTypeToUse, apiKeyToUse, modelsToUse }) ->
-          if not apiKeyToUse then return
+          if not apiKeyToUse then return # manageStatusMessage called in determineApiConfig
           if modelsToUse.length == 0
-            manageStatusMessage("No suitable AI models found for #{apiTypeToUse}.", 'warn', 5000)
+            manageStatusMessage("No suitable AI models found for #{apiTypeToUse}. Check options or background logs.", 'warn', 5000)
             return
           currentDomainsString = domainsToQuery.sort().join(',')
           cachedDomainsString = if cachedDomains then cachedDomains.sort().join(',') else null
@@ -231,15 +261,15 @@ document.addEventListener 'DOMContentLoaded', () ->
                 return
               else throw new Error("No text in cached response.")
             catch e
-              console.error "Popup: Failed to use cached response:", e
-              manageStatusMessage("Cache error, fetching new data.", 'warn', 3000)
+              console.error "Popup: Failed to use cached response:", e # Formatted
+              manageStatusMessage("Cache error. Fetching new data.", 'warn', 3000)
 
           promptText = "Tell me, as JSON:\nin a `why` field, in twelve words for each, why my browser requests #{domainsToQuery.map((d) -> "`#{d}`").join(', ')} when accessing `#{mainDomain}`;\nin a `brief` field, one word saying whether this domain is `necessary`, `useful`, `optional`, `tracking`, `ad`, or `dangerous` when accessing `#{mainDomain}`;.\nReturn the result as a JSON object with domains as keys and their descriptions as values.\n\nExample response:\n{\"example.com\": {\"why\": \"tracking user behavior.\", \"brief\": \"tracking\"}}"
 
           attemptFetch = (index) ->
             if index >= modelsToUse.length
-              console.error "Popup: All models for #{apiTypeToUse} failed."
-              manageStatusMessage("All AI models failed.", 'error', 5000)
+              console.error "Popup: All models for #{apiTypeToUse} failed." # Formatted
+              manageStatusMessage("All AI models failed. Check console.", 'error', 5000) # User-friendly
               if fallbackMessageDiv then fallbackMessageDiv.style.display = 'none'
               return
             modelName = modelsToUse[index]
@@ -258,12 +288,12 @@ document.addEventListener 'DOMContentLoaded', () ->
           attemptFetch(0)
         )
         .catch (err) ->
-          console.error "Popup: Error in API config/fetch process:", err
-          manageStatusMessage("API configuration error.", 'error', 5000)
+          console.error "Popup: Error in API config/fetch process:", err # Formatted
+          manageStatusMessage("API configuration error. Check console.", 'error', 5000) # User-friendly
 
-  processBackgroundResponse = (response, activeTab, isInitialCall = false) -> # Added isInitialCall
+  processBackgroundResponse = (response, activeTab, isInitialCall = false) ->
     if response and response.domains
-      if isInitialCall then console.log "Popup: Initial getTabDomains message successful. Response:", response
+      if isInitialCall then console.log "Popup: Initial getTabDomains message successful. Response:", response # Formatted
       domainListEl.innerHTML = ''
       mainDomain = new URL(activeTab.url).hostname
       response.domains.forEach (domain) ->
@@ -277,32 +307,32 @@ document.addEventListener 'DOMContentLoaded', () ->
     else
       manageStatusMessage("No domains found for this tab.", 'info', 3000)
 
-  handleTabQueryResponse = (tabs, isInitialCall = false) -> # Added isInitialCall
+  handleTabQueryResponse = (tabs, isInitialCall = false) ->
     if chrome.runtime.lastError
-      console.error "Popup: Initial tab query failed:", chrome.runtime.lastError.message if isInitialCall
-      console.error "Popup: Tab query failed:", chrome.runtime.lastError.message unless isInitialCall
-      manageStatusMessage("Error accessing browser tabs.", 'error', 5000)
+      console.error "Popup: Initial tab query failed:", chrome.runtime.lastError.message if isInitialCall # Formatted
+      console.error "Popup: Tab query failed:", chrome.runtime.lastError.message unless isInitialCall # Formatted
+      manageStatusMessage("Error accessing browser tabs. Check console.", 'error', 5000) # User-friendly
       return
 
     activeTab = tabs[0]
     if activeTab
-      if isInitialCall then console.log "Popup: Initial tab query successful. Active tab ID:", activeTab.id, "Sending getTabDomains message."
+      if isInitialCall then console.log "Popup: Initial tab query successful. Active tab ID:", activeTab.id, "Sending getTabDomains message." # Formatted
       chrome.runtime.sendMessage { action: "getTabDomains", tabId: activeTab.id }, (response) ->
         if chrome.runtime.lastError
-          console.error "Popup: Initial getTabDomains message failed:", chrome.runtime.lastError.message if isInitialCall
-          console.error "Popup: getTabDomains message failed:", chrome.runtime.lastError.message unless isInitialCall
-          manageStatusMessage("Error communicating with background.", 'error', 5000)
+          console.error "Popup: Initial getTabDomains message failed:", chrome.runtime.lastError.message if isInitialCall # Formatted
+          console.error "Popup: getTabDomains message failed:", chrome.runtime.lastError.message unless isInitialCall # Formatted
+          manageStatusMessage("Error communicating with background. Check console.", 'error', 5000) # User-friendly
           return
-        processBackgroundResponse(response, activeTab, isInitialCall) # Pass isInitialCall
+        processBackgroundResponse(response, activeTab, isInitialCall)
     else
-      console.warn "Popup: Initial tab query returned no active tab." if isInitialCall
-      console.warn "Popup: Tab query returned no active tab." unless isInitialCall
+      console.warn "Popup: Initial tab query returned no active tab." if isInitialCall # Formatted
+      console.warn "Popup: Tab query returned no active tab." unless isInitialCall # Formatted
       manageStatusMessage("Could not identify active tab.", 'error', 5000)
 
   fetchAndDisplayDomainsInitial = () ->
-    console.log "Popup: fetchAndDisplayDomainsInitial called. Attempting to query active tab immediately."
+    console.log "Popup: fetchAndDisplayDomainsInitial called. Attempting to query active tab immediately." # Formatted
     chrome.tabs.query { active: true, currentWindow: true }, (tabs) ->
-      handleTabQueryResponse(tabs, true) # Pass true for isInitialCall
+      handleTabQueryResponse(tabs, true)
 
   fetchAndDisplayDomainsInitial()
 
@@ -313,7 +343,6 @@ document.addEventListener 'DOMContentLoaded', () ->
         if activeTab and activeTab.id == request.tabId
           processBackgroundResponse({ domains: request.domains }, activeTab)
         true
-    # return true # For other async responses
 
   copyDomainsButton.addEventListener 'click', () ->
     if localDomainDescriptions and Object.keys(localDomainDescriptions).length > 0
@@ -328,14 +357,14 @@ document.addEventListener 'DOMContentLoaded', () ->
         navigator.clipboard.writeText(domainsToCopy.join('\n')).then () ->
           manageStatusMessage("Copied!", 'success', 2000)
         .catch (err) ->
-          console.error "Popup: Failed to copy:", err
+          console.error "Popup: Failed to copy:", err # Formatted
           manageStatusMessage("Failed to copy.", 'error', 3000)
 
   clearButton.addEventListener 'click', () ->
     chrome.tabs.query { active: true, currentWindow: true }, (tabs) ->
       if chrome.runtime.lastError
         manageStatusMessage("Error accessing tabs for clear.", 'error', 3000)
-        return console.error "Popup: Error querying for clear:", chrome.runtime.lastError.message
+        return console.error "Popup: Error querying for clear:", chrome.runtime.lastError.message # Formatted
       activeTab = tabs[0]
       if activeTab
         domainListEl.innerHTML = ''
@@ -343,10 +372,10 @@ document.addEventListener 'DOMContentLoaded', () ->
         chrome.runtime.sendMessage { action: "clearTabDomains", tabId: activeTab.id }, (response) ->
           if chrome.runtime.lastError
             manageStatusMessage("Failed to clear stored domains.", 'error', 3000)
-            console.error "Popup: Error sending clear msg:", chrome.runtime.lastError.message
+            console.error "Popup: Error sending clear msg:", chrome.runtime.lastError.message # Formatted
       else
         manageStatusMessage("No active tab found to clear.", 'error', 3000)
-        console.error "Popup: No active tab to clear."
+        console.error "Popup: No active tab to clear." # Formatted
 
   showJsonButton.addEventListener 'click', () ->
     if jsonResponseDiv.style.display == 'none'
@@ -363,7 +392,7 @@ document.addEventListener 'DOMContentLoaded', () ->
 
   showConsoleButton.addEventListener 'click', () ->
     targetConsoleDiv = document.getElementById 'console-output'
-    if targetConsoleDiv
+    if targetConsoleDiv # Check if div exists
       if targetConsoleDiv.style.display == 'none'
         targetConsoleDiv.style.display = 'block'
         targetConsoleDiv.scrollTop = targetConsoleDiv.scrollHeight

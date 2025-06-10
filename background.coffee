@@ -47,6 +47,20 @@ chrome.tabs.onRemoved.addListener (tabId, removeInfo) ->
   chrome.storage.local.remove storageKey, () ->
     console.log "Background: Cleaned up domains for closed tab #{tabId} from storage"
 
+# Auto-clear domains on page navigation (main frame navigation)
+chrome.tabs.onUpdated.addListener (tabId, changeInfo, tab) ->
+  # Check if the update is for the main frame, status is 'loading', and a URL is present
+  # changeInfo.url is present when the URL of the tab changes.
+  if changeInfo.status == 'loading' and changeInfo.url
+    storageKey = "#{TAB_DOMAINS_STORAGE_PREFIX}#{tabId}"
+    chrome.storage.local.remove storageKey, () ->
+      console.log "Background: Tab #{tabId} navigated to new URL (#{changeInfo.url}). Cleared its domains."
+      # Send message to popup to clear its view for this tab
+      chrome.runtime.sendMessage { action: "updatePopupDomains", tabId: tabId, domains: [] }, () ->
+        if chrome.runtime.lastError
+          # Expected if popup for this tab isn't open or ready
+          null
+
 # Listen for messages from the popup script
 chrome.runtime.onMessage.addListener (request, sender, sendResponse) ->
   console.log "Background: Received message:", request
@@ -67,6 +81,46 @@ chrome.runtime.onMessage.addListener (request, sender, sendResponse) ->
       sendResponse { status: "cleared" }
     # Return true to indicate that sendResponse will be called asynchronously
     true
+
+# Helper function to assign sort scores to Gemini models
+getGeminiSortScore = (modelName) ->
+  score = 100 # Default large score for less preferred models
+  name = modelName.toLowerCase()
+
+  if name.includes("gemini-1.5")
+    score -= 50
+  else if name.includes("gemini-1.0")
+    score -= 25 # Prefer 1.0 over unspecified or older if any
+
+  if name.includes("pro")
+    score -= 10
+  else if name.includes("flash")
+    score -= 5 # Pro is better than Flash
+
+  if name.includes("latest")
+    score -= 20 # 'latest' is highly preferred
+
+  # Models like "gemini-pro" (older, less specific) will get higher scores (less preferred)
+  # compared to "gemini-1.0-pro"
+  if name == "models/gemini-pro" # This is often an alias for an older 1.0 model
+      score = 60 # Make it less preferred than explicit 1.0 pro or any 1.5
+
+  return score
+
+# Helper function to assign sort scores to Groq models
+getGroqSortScore = (modelId) ->
+  id = modelId.toLowerCase()
+  # Prioritize by model family and size (lower score is better)
+  if id.includes("mixtral-8x7b") then return 1
+  if id.includes("llama2-70b") then return 2
+  if id.includes("llama3-70b") then return 3 # Assuming llama3 is newer/better
+  if id.includes("llama3-8b") then return 5
+  if id.includes("llama2-13b") then return 10
+  if id.includes("llama") then return 15 # Generic llama catch-all
+  if id.includes("gemma-7b") then return 20
+  if id.includes("gemma-2b") then return 22
+  if id.includes("gemma") then return 25 # Generic gemma
+  return 100 # Default for others
 
 # Fetch available models at launch and store them
 # Function to fetch available models and store them
@@ -124,21 +178,39 @@ fetchAndStoreModels = () ->
 
     # Fetch models from both APIs concurrently
     Promise.all([fetchGeminiModels(), fetchGroqModels()])
-      .then ([geminiModels, groqModels]) ->
-        # Combine models from both APIs
-        allModels = geminiModels.concat(groqModels)
+      .then ([rawGeminiModels, rawGroqModels]) -> # Renamed to raw to signify they are unsorted
 
-        # Sort models (optional, but good for consistency - can refine sorting later if needed)
-        # For now, a simple sort by name/id
-        sortedModels = allModels.sort (a, b) ->
-          nameA = a.name ? a.id # Use name for Gemini, id for Groq
-          nameB = b.name ? b.id
-          nameA.localeCompare(nameB)
+        # Sort Gemini Models
+        # The filter for "models/gemini-" is already done in fetchGeminiModels
+        sortedGeminiModels = rawGeminiModels.sort (a, b) ->
+          scoreA = getGeminiSortScore(a.name)
+          scoreB = getGeminiSortScore(b.name)
+          if scoreA == scoreB
+            # Fallback to alphabetical for same score
+            return a.name.localeCompare(b.name)
+          return scoreA - scoreB
 
-        chrome.storage.local.set { availableModels: sortedModels }, () ->
-          console.log "Background: All available models fetched and stored:", sortedModels.map (m) -> m.name ? m.id
+        console.log "Background: Sorted Gemini Models (scores applied):", sortedGeminiModels.map (m) -> {name: m.name, score: getGeminiSortScore(m.name)}
+
+        # Sort Groq Models
+        # Groq models are already filtered in fetchGroqModels if needed
+        sortedGroqModels = rawGroqModels.sort (a, b) ->
+          scoreA = getGroqSortScore(a.id)
+          scoreB = getGroqSortScore(b.id)
+          if scoreA == scoreB
+            # Fallback to alphabetical for same score
+            return a.id.localeCompare(b.id)
+          return scoreA - scoreB
+
+        console.log "Background: Sorted Groq Models (scores applied):", sortedGroqModels.map (m) -> {id: m.id, score: getGroqSortScore(m.id)}
+
+        # Combine sorted models, Gemini first
+        allSortedModels = sortedGeminiModels.concat(sortedGroqModels)
+
+        chrome.storage.local.set { availableModels: allSortedModels }, () ->
+          console.log "Background: All available models fetched, sorted heuristically, and stored:", allSortedModels.map (m) -> m.name ? m.id
       .catch (err) ->
-        console.error "Background: Error combining or storing models:", err
+        console.error "Background: Error combining, sorting, or storing models:", err
 
 # Fetch available models when the background script starts
 fetchAndStoreModels()
