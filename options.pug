@@ -3,14 +3,42 @@ html
   head
     title Domain Tracker Options
     link(rel='stylesheet', href='styles.css')
+    style.
+      .option-section { margin-bottom: 20px; }
+      .api-help { font-size: 0.9em; margin-bottom: 5px; color: #555; }
+      .api-help a { color: #007bff; text-decoration: none; }
+      .api-help a:hover { text-decoration: underline; }
+      label { display: inline-block; min-width: 150px; }
+      input[type='text'], input[type='number'] { width: 300px; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px;}
+      button { margin-top: 10px; }
   body
     h1 Domain Tracker Options
-    label(for='geminiApiKey') Gemini API Key:
-    input(type='text', id='geminiApiKey', size='50')
-    br
-    br
-    label(for='groqApiKey') Groq API Key:
-    input(type='text', id='groqApiKey', size='50')
-    button#saveButton Save
-    div#status
+
+    div.option-section
+      h2 Log Settings
+      label(for='maxLogEntries') Max Historical Logs:
+      input(type='number' id='maxLogEntries' name='maxLogEntries' min='50' max='1000' value='200')
+      div(style='font-size:0.8em; color: #777;') (Range: 50-1000. Controls logs shown in popup console.)
+
+
+    div.option-section
+      h2 API Key Configuration
+
+      div.api-help
+        p To get a Gemini API key, visit
+          a(href='https://aistudio.google.com/app/apikey' target='_blank') Google AI Studio
+          | .
+      label(for='geminiApiKey') Gemini API Key:
+      input(type='text', id='geminiApiKey', name='geminiApiKey' size='50')
+      br
+
+      div.api-help(style='margin-top:10px;')
+        p To get a Groq API key, visit
+          a(href='https://console.groq.com/keys' target='_blank') GroqCloud Console
+          | .
+      label(for='groqApiKey') Groq API Key:
+      input(type='text', id='groqApiKey', name='groqApiKey' size='50')
+
+    button#saveButton Save Settings
+    div#status(style='margin-top:10px; font-weight:bold;')
     script(src='options.js')
