@@ -21,17 +21,23 @@ chrome.webRequest.onCompleted.addListener (details) ->
     unless domains.includes(domain)
       domains.push(domain)
       chrome.storage.local.set { [storageKey]: domains }, () ->
-        console.log "Background: Added domain #{domain} to tab #{tabId}. Domains for tab #{tabId}:", domains
-        # Check if the updated tab is the active one and send a message to the popup
+        # console.log "Background: Added domain #{domain} to tab #{tabId}. Domains for tab #{tabId}:", domains # Reduced verbosity
+        # Check if the updated tab is the active one and send a message to its popup
         chrome.tabs.query { active: true, currentWindow: true }, (tabs) ->
-          activeTab = tabs[0]
-          # Send message to the popup for the tab where the request completed
-          console.log "Background: Attempting to send updatePopupDomains message to tab #{tabId} with domains:", domains # Added log
-          chrome.runtime.sendMessage { action: "updatePopupDomains", tabId: tabId, domains: domains }, () -> # Pass tabId in message
-            if chrome.runtime.lastError
-              # This error is expected if the popup is not open
-              # console.log "Background: Could not send updatePopupDomains message:", chrome.runtime.lastError.message
-              null # Suppress error logging when popup is closed
+          if tabs and tabs[0]
+            activeTab = tabs[0]
+            # Only send the message if the web request's tab is the currently active tab
+            if activeTab.id == tabId
+              console.log "Background: Active tab matches request tab (#{tabId}). Sending updatePopupDomains message with domains:", domains
+              chrome.runtime.sendMessage { action: "updatePopupDomains", tabId: tabId, domains: domains }, () ->
+                if chrome.runtime.lastError
+                  # This error is expected if the popup for the active tab is not open
+                  # console.log "Background: Could not send updatePopupDomains message to active tab popup:", chrome.runtime.lastError.message
+                  null # Suppress error logging
+            # else
+            #   console.log "Background: Domain #{domain} added to non-active tab #{tabId}. Active tab is #{activeTab.id}. No popup message sent."
+          else
+            console.warn "Background: Could not determine active tab. No popup message sent for new domain in tab #{tabId}."
 
 , { urls: ["<all_urls>"] }
 
@@ -136,3 +142,16 @@ fetchAndStoreModels = () ->
 
 # Fetch available models when the background script starts
 fetchAndStoreModels()
+
+# Listen for changes in storage (e.g., API keys updated in options)
+chrome.storage.onChanged.addListener (changes, areaName) ->
+  if areaName == "local"
+    apiKeyChanged = false
+    for key, change of changes
+      if key == "geminiApiKey" or key == "groqApiKey"
+        apiKeyChanged = true
+        break
+
+    if apiKeyChanged
+      console.log "Background: API key changed, re-fetching available models."
+      fetchAndStoreModels()
