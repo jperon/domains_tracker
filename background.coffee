@@ -83,28 +83,56 @@ chrome.runtime.onMessage.addListener (request, sender, sendResponse) ->
     true
 
 # Helper function to assign sort scores to Gemini models
-getGeminiSortScore = (modelName) ->
-  score = 100 # Default large score for less preferred models
-  name = modelName.toLowerCase()
+getGeminiSortScore = (modelNameWithPrefix) -> # modelNameWithPrefix is like "models/gemini-1.5-pro-latest"
+  name = modelNameWithPrefix.replace("models/", "").toLowerCase() # Remove "models/" prefix
 
-  if name.includes("gemini-1.5")
-    score -= 50
-  else if name.includes("gemini-1.0")
-    score -= 25 # Prefer 1.0 over unspecified or older if any
+  score = 5000 # Base score, lower is better
+  version = 0.0 # Default version, effectively giving unspecified versions lowest priority
+  versionStr = "0.0" # For logging
+  modelType = "unknown"
+  isLatest = false
+  hasNumericSuffix = false
 
+  # 1. Version Parsing (Primary Factor)
+  # Try to match specific version patterns first
+  versionMatch = name.match(/gemini-([0-9]\.[0-9]+)/) # Matches "gemini-1.0", "gemini-1.5"
+  if versionMatch and versionMatch[1]
+    version = parseFloat(versionMatch[1])
+    versionStr = versionMatch[1]
+  # Handle cases where version might not be explicitly in "gemini-X.Y" format but implied
+  # e.g., "gemini-pro-vision" (often implies 1.0) or old "gemini-pro"
+  else if name.includes("gemini-1.5") # Catch if "gemini-1.5" is part of a more complex name not caught above
+    version = 1.5
+    versionStr = "1.5"
+  else if name.includes("gemini-1.0") or name.includes("gemini-pro-vision") or name.includes("gemini-pro") # Treat as 1.0
+    version = 1.0
+    versionStr = "1.0"
+    if name.includes("gemini-pro-vision") then versionStr = "1.0 (vision)"
+    else if name == "gemini-pro" then versionStr = "1.0 (legacy pro)"
+
+
+  score -= version * 1000 # Higher version gets much lower score (e.g. 1.5 -> -1500, 1.0 -> -1000)
+
+  # 2. Model Type (Secondary Factor)
   if name.includes("pro")
-    score -= 10
+    score -= 100 # 'pro' is better
+    modelType = "pro"
   else if name.includes("flash")
-    score -= 5 # Pro is better than Flash
+    score -= 50  # 'flash' is less preferred than 'pro'
+    modelType = "flash"
+  # Add other types if they become relevant, e.g., "ultra" would get score -= 150 or similar
 
+  # 3. "latest" Tag (Tertiary Factor)
   if name.includes("latest")
-    score -= 20 # 'latest' is highly preferred
+    score -= 20 # Smaller bonus than type, much smaller than version
+    isLatest = true
 
-  # Models like "gemini-pro" (older, less specific) will get higher scores (less preferred)
-  # compared to "gemini-1.0-pro"
-  if name == "models/gemini-pro" # This is often an alias for an older 1.0 model
-      score = 60 # Make it less preferred than explicit 1.0 pro or any 1.5
+  # 4. Specific numeric versions (e.g., -001) - make them slightly worse than base non-numeric version
+  if name.match(/-[0-9]{3}$/) # Ends with -001, -002 etc.
+    score += 5 # Small penalty for being a specific numbered version
+    hasNumericSuffix = true
 
+  console.log "GeminiSortScore: FullName: '#{modelNameWithPrefix}', ParsedName: '#{name}', Version: #{versionStr}, Type: #{modelType}, Latest: #{isLatest}, NumSuffix: #{hasNumericSuffix} => Score: #{score}"
   return score
 
 # Helper function to assign sort scores to Groq models
@@ -185,12 +213,11 @@ fetchAndStoreModels = () ->
         sortedGeminiModels = rawGeminiModels.sort (a, b) ->
           scoreA = getGeminiSortScore(a.name)
           scoreB = getGeminiSortScore(b.name)
-          if scoreA == scoreB
-            # Fallback to alphabetical for same score
-            return a.name.localeCompare(b.name)
-          return scoreA - scoreB
+          # Primary sort by score, secondary by name (alphabetical as tie-breaker)
+          return scoreA - scoreB or a.name.localeCompare(b.name)
 
-        console.log "Background: Sorted Gemini Models (scores applied):", sortedGeminiModels.map (m) -> {name: m.name, score: getGeminiSortScore(m.name)}
+        # Logging after sorting, using the now correctly defined getGeminiSortScore for consistent score display in log
+        console.log "Background: Sorted Gemini Models (scores applied):", sortedGeminiModels.map (m) -> {name: m.name, finalScore: getGeminiSortScore(m.name)}
 
         # Sort Groq Models
         # Groq models are already filtered in fetchGroqModels if needed
