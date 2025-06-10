@@ -1,158 +1,151 @@
 # Network Address Collector
 
-Extension de navigateur pour collecter les domaines contactés par chaque onglet et obtenir des descriptions générées par IA pour ces domaines.
+Browser extension to collect domains contacted by each tab and obtain AI-generated descriptions for these domains.
 
-## Fonctionnalités
+## Features
 
-- **Collecte de domaines par onglet** : Enregistre les domaines visités pour chaque onglet actif.
-- **Description par IA** : Utilise les APIs Gemini ou Groq pour générer des descriptions et des classifications (nécessaire, utile, optionnel, publicitaire, suivi, dangereux) pour les domaines externes.
-- **Interface Popup** : Affiche la liste des domaines collectés pour l'onglet actif avec leurs descriptions. Permet de copier les domaines sélectionnés, de vider la liste pour l'onglet actif, d'afficher la réponse JSON brute de l'API, et d'afficher la sortie de la console.
-- **Page d'Options** : Permet de configurer les clés API pour Gemini et Groq.
-- **Gestion des clés API** : Utilise les clés API configurées. Invite l'utilisateur à ajouter une clé si aucune n'est définie.
-- **Mise en cache des descriptions** : Stocke les descriptions générées par l'IA pour éviter les appels répétés pour les mêmes domaines pour l'onglet actif.
+- **Per-Tab Domain Collection**: Records domains accessed by each browser tab.
+- **AI-Powered Descriptions**: Leverages Gemini or Groq APIs to generate concise descriptions and safety classifications (e.g., necessary, useful, advertising, tracking) for each domain.
+- **Intuitive Popup Interface**: Displays collected domains for the active tab, along with their AI-generated details. Features include copying domains, clearing the list, viewing raw API responses, and accessing console logs.
+- **Configurable Options Page**: Allows users to securely input and manage their API keys for Gemini and Groq.
+- **Smart API Key Handling**: Utilizes configured API keys and prompts for setup if a key is missing.
+- **Efficient Caching**: Stores AI-generated descriptions locally to minimize redundant API calls for previously analyzed domains within the active tab.
 
-## Structure du projet
+## Project Structure
 
+The project root directory contains all source files, configuration files, assets, and build outputs.
 ```
 network-address-collector/
-├── src/
-│   ├── manifest.yaml          # Configuration de l'extension
-│   ├── background.coffee      # Script de collecte principal
-│   ├── popup.pug             # Modèle d'interface utilisateur
-│   └── popup.coffee          # Logique de l'interface utilisateur
-├── package.json
-└── README.md
+├── manifest.yaml          # Source: Main extension configuration (YAML, primarily for Chrome)
+├── firefox-manifest.yaml  # Source: Firefox-specific manifest configuration (YAML)
+├── background.coffee      # Source: Core background script for domain collection
+├── popup.pug             # Source: HTML template for the extension popup's UI
+├── popup.coffee          # Source: Client-side logic for the extension popup
+├── options.pug           # Source: HTML template for the extension's options page UI
+├── options.coffee        # Source: Client-side logic for the options page
+├── content.coffee        # Source: Script for interacting with web page content (if applicable)
+├── styles.css            # Source: CSS styles for the popup and options pages
+├── icon.png              # Asset: The extension's icon displayed in the browser
+├── package.json          # Defines NPM dependencies, and scripts (build, watch, etc.)
+├── LICENSE.md            # Contains the software license for the project
+├── .gitignore            # Specifies files and directories ignored by Git
+└── README.md             # This file: Overview and instructions for the project
+
+# After `npm run build`, the following compiled/transpiled files are typically generated in the root directory:
+├── manifest.json         # Output: Standard JSON manifest (e.g., for Chrome or generated from firefox-manifest.yaml)
+├── background.js         # Output: Transpiled JavaScript for the background script
+├── popup.html            # Output: HTML file for the popup
+├── popup.js              # Output: Transpiled JavaScript for the popup logic
+├── options.html          # Output: HTML file for the options page
+├── options.js            # Output: Transpiled JavaScript for the options page logic
+└── content.js            # Output: Transpiled JavaScript for the content script (if applicable)
+# Note: The exact output can depend on the build scripts in package.json, especially for multiple browser targets.
 ```
 
 ## Installation
 
-### Prérequis
+### 1. Prerequisites
 
-Installez Node.js et les dépendances de développement :
+- Ensure Node.js is installed on your system. You can download it from [nodejs.org](https://nodejs.org/).
+
+### 2. Install Project Dependencies
+
+Open your terminal, navigate to the project's root directory, and execute the following command:
+This command reads the `package.json` file and installs all necessary development dependencies (e.g., CoffeeScript, Pug, js-yaml transpilers) locally within the project.
 
 ```bash
 npm install
 ```
 
-### Transpilation des fichiers source
+### 3. Build the Extension
 
-L'extension utilise des langages de préprocesseur qui doivent être transpilés :
+Once dependencies are installed, compile the source files by running:
+This command executes the `build` script defined in `package.json`. It transpiles CoffeeScript files to JavaScript, Pug files to HTML, and YAML manifest files to JSON. The resulting output files are placed in the **root directory** and are ready for the browser.
 
-#### 1. YAML vers JSON (Manifest)
-```bash
-# Installer le transpileur YAML globalement
-npm install -g js-yaml
-
-# Transpiler le manifest
-js-yaml src/manifest.yaml > src/manifest.json
-```
-
-#### 2. Pug vers HTML (Interface)
-```bash
-# Installer Pug CLI globalement
-npm install -g pug-cli
-
-# Transpiler les modèles
-pug src/popup.pug -o src/
-pug src/options.pug -o src/
-# Génère : src/popup.html, src/options.html
-```
-
-#### 3. CoffeeScript vers JavaScript
-```bash
-# Installer CoffeeScript globalement
-npm install -g coffeescript
-
-# Transpiler les scripts
-coffee -c src/background.coffee src/popup.coffee src/options.coffee src/content.coffee
-# Génère : src/background.js, src/popup.js, src/options.js, src/content.js
-```
-
-### Build automatisé
-
-Utilisez les scripts npm pour automatiser la transpilation :
+For ongoing development, `npm run watch` can be used to automatically recompile files when changes are detected. The `npm run clean` script can be used to remove generated files.
 
 ```bash
-# Build complet (une fois)
+# Full build (compiles all necessary files into the root directory)
 npm run build
 
-# Mode surveillance (surveille les changements)
-npm run watch
+# Optional: Watch mode (monitors changes and recompiles automatically)
+# npm run watch
 
-# Nettoyer les fichiers générés
-npm run clean
+# Optional: Clean generated files
+# npm run clean
 ```
 
-### Installation dans le navigateur
+### 4. Load the Extension in Your Browser
 
-1. **Transpiler tous les fichiers** en utilisant `npm run build`.
+Once the build process is complete (`npm run build`), the **root project directory** will contain all the necessary files for the extension to run, including the crucial `manifest.json` file.
 
-2. **Chrome/Chromium** :
-   - Allez à `chrome://extensions/`
-   - Activez le "Mode développeur"
-   - Cliquez sur "Charger l'extension non empaquetée"
-   - Sélectionnez le dossier `src` du projet.
+**Chrome/Chromium:**
 
-3. **Firefox** :
-   - Allez à `about:debugging`
-   - Cliquez sur "Ce Firefox"
-   - Cliquez sur "Charger un module temporaire..."
-   - Sélectionnez le fichier `src/manifest.json`.
+1.  Navigate to `chrome://extensions/`.
+2.  Enable "Developer mode" (usually a toggle in the top right).
+3.  Click on "Load unpacked".
+4.  Select the **root project directory**.
 
-## Utilisation
+**Firefox:**
 
-### Collecte automatique
+1.  Navigate to `about:debugging#/runtime/this-firefox`.
+2.  Click on "Load Temporary Add-on...".
+3.  Select the `manifest.json` file located in the **root project directory**.
 
-L'extension commence à collecter automatiquement dès son installation :
+## Usage
 
-1. **Navigation normale** : Naviguez comme d'habitude.
-2. **Collecte transparente** : Les domaines sont enregistrés en arrière-plan pour l'onglet actif.
-3. **Impact minimal sur les performances** : Traitement asynchrone en arrière-plan.
+### Automatic Collection
 
-### Interface utilisateur
+The extension starts collecting automatically upon installation:
 
-Cliquez sur l'icône de l'extension pour ouvrir le popup :
+1. **Normal Browsing**: Browse as usual.
+2. **Transparent Collection**: Domains are recorded in the background for the active tab.
+3. **Minimal Performance Impact**: Asynchronous background processing.
 
-- Affiche une liste des domaines contactés par l'onglet actif.
-- Montre les descriptions et classifications générées par l'IA pour les domaines externes.
-- Permet de sélectionner des domaines via des cases à cocher.
-- **Bouton Copier** : Copie les domaines sélectionnés dans le presse-papiers.
-- **Bouton Effacer** : Efface les domaines collectés pour l'onglet actif.
-- **Bouton Afficher la réponse JSON** : Bascule la visibilité de la réponse JSON brute de l'API IA.
-- **Bouton Afficher la console** : Bascule la visibilité de la sortie de la console dans le popup.
+### User Interface
 
-## Gestion automatique
+Click the extension's icon in your browser toolbar to open the popup interface:
 
-L'extension gère automatiquement :
+- **Domain List**: View domains contacted by the currently active tab.
+- **AI Insights**: See AI-generated descriptions and classifications for external domains (if API keys are configured).
+- **Selection**: Use checkboxes to select specific domains.
+- **Copy**: Copies the selected domains to your clipboard.
+- **Clear**: Erases the collected domain list for the active tab.
+- **Toggle JSON**: Shows or hides the raw JSON response from the AI API for troubleshooting.
+- **Toggle Console**: Displays or hides any console log output within the popup for debugging.
 
-- **Déduplication** : Empêche les domaines en double dans la liste pour un onglet.
-- **Nettoyage** : Supprime les domaines collectés pour un onglet lorsque cet onglet est fermé.
+## Automatic Management
 
-## Sécurité et confidentialité
+The extension automatically manages:
 
-### Données collectées
+- **Deduplication**: Prevents duplicate domains in the list for a tab.
+- **Cleanup**: Removes collected domains for a tab when that tab is closed.
 
-- **Domaines uniquement** : Aucune URL complète ou contenu de page n'est collecté.
-- **Pas de contenu** : Aucune donnée de page n'est collectée.
-- **Requête IA** : Lorsque le popup est ouvert et qu'une clé API est configurée, l'extension envoie une requête à l'API (Gemini ou Groq) contenant la liste des domaines externes contactés par l'onglet actif. Cette requête demande à l'IA de fournir une courte explication ("why") et une classification ("brief" : nécessaire, utile, optionnel, publicitaire, suivi, dangereux) pour chaque domaine, au format JSON.
-- **Stockage local** : Les données sont stockées localement dans le stockage du navigateur et ne sont pas transmises à l'extérieur.
-- **Nettoyage automatique** : Les données pour un onglet sont supprimées lorsque l'onglet est fermé.
+## Security and Privacy
 
-### Permissions requises
-- `webRequest` : Intercepter les requêtes réseau.
-- `storage` : Stocker les données localement.
-- `activeTab** : Obtenir des informations sur l'onglet actif.
-- `<all_urls>` : Accès à tous les domaines (lecture seule pour les requêtes web).
+### Collected Data
 
-## Développement
+- **Domain-Level Collection**: The extension only records domain names (e.g., `example.com`), not full URLs or any content from visited pages.
+- **No Page Content Stored**: Absolutely no data from the web pages you visit is collected or stored.
+- **AI Interaction**: If an API key is configured and the popup is opened, the extension sends only the list of *external* domains from the active tab to your chosen AI provider (Gemini or Groq). The AI is prompted to return a brief explanation and classification for each domain. This communication is directly between your browser and the AI provider.
+- **Local Browser Storage**: All collected domain data and AI-generated descriptions are stored locally on your computer using the browser's standard storage mechanisms. This data is not transmitted to any external servers by the extension itself.
+- **Automatic Data Purge**: When a browser tab is closed, all domain data collected specifically for that tab is automatically deleted from your computer's local storage.
 
-### Architecture
+### Required Permissions Explained
+- `webRequest`: Essential for intercepting network requests to identify the domains being contacted.
+- `storage`: Required for the local storage of collected domain lists, AI-generated descriptions, and user-configured settings (like API keys).
+- `activeTab`: Allows the extension to interact with the currently active tab, primarily to display its specific domain list when the popup is opened.
+- `<all_urls>`: Necessary for the `webRequest` permission to function across all websites. This permission is used in a read-only capacity to analyze network requests; the extension does not read or alter content from any web page.
 
-- **Manifest V3** : Compatibilité moderne des extensions de navigateur.
-- **Service Worker** : Script d'arrière-plan persistant.
-- **Storage API** : Stockage local sécurisé du navigateur.
-- **WebRequest API** : Intercepter les requêtes réseau.
+## Development Notes
 
-## Licence
+### Core Architecture
+- **Manifest V3 Compliance**: Developed according to the latest browser extension standards (Manifest V3), emphasizing security, privacy, and performance.
+- **Service Worker (`background.js`)**: Network request monitoring and domain logging are managed by a background service worker, ensuring continuous operation without direct user interface.
+- **Local Storage (`storage` API)**: All persistent data, such as collected domains and user preferences, is stored locally and securely using the browser's built-in storage API.
+- **Network Interception (`webRequest` API)**: The extension uses the `webRequest` API to observe outgoing network requests and identify unique domain interactions.
 
-Licence MIT - Libre d'utilisation et de modification.
+## License
+
+MIT License - Free to use and modify.
+```
