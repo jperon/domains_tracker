@@ -33,6 +33,11 @@ h1 {
   margin-bottom: 5px; /* Space between status and fallback messages */
 }
 
+#config {
+  text-align: center;
+  margin-bottom: 15px;
+}
+
 button {
   padding: 8px 15px;
   border: none;

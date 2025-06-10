@@ -1,3 +1,4 @@
+# coffeelint: disable=max_line_length
 # Redirect console messages to a div
 originalConsoleLog = console.log
 originalConsoleWarn = console.warn
@@ -173,9 +174,9 @@ document.addEventListener 'DOMContentLoaded', () ->
   copyDomainsButton = document.getElementById 'copy-domains-button'
   fallbackMessageDiv = document.getElementById 'fallback-key-message'
 
-  let localLastApiResponse = null
-  let localDomainDescriptions = {}
-  let statusMessageTimeoutId = null
+  localLastApiResponse = null
+  localDomainDescriptions = {}
+  statusMessageTimeoutId = null
 
   manageStatusMessage = (messageText, type = 'info', duration = null) ->
     if statusMessageEl

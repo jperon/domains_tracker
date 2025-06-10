@@ -1,5 +1,4 @@
 # coffeelint: disable=max_line_length
-# coffeelint: disable=max_line_length
 # Store domains per tab in chrome.storage.local
 # Using a prefix to avoid conflicts with other storage keys
 TAB_DOMAINS_STORAGE_PREFIX = "tabDomains_"

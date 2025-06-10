@@ -8,19 +8,17 @@
     "build:options": "pug options.pug",
     "build:background": "coffee -c background.coffee",
     "build:popup-js": "coffee -c popup.coffee",
-    "build:content-js": "coffee -c content.coffee",
     "build:options-js": "coffee -c options.coffee",
-    "build:common": "npm-run-all build:popup build:background build:popup-js build:content-js build:options build:options-js",
+    "build:common": "npm-run-all build:popup build:background build:popup-js build:options build:options-js",
     "build": "npm run build:common && npm run build:manifest",
-    "package": "npm run build && zip -r network-address-collector.zip manifest.json popup.html popup.js options.html options.js background.js content.js styles.css icon.png",
+    "package": "npm run build && zip -r network-address-collector.zip manifest.json popup.html popup.js options.html options.js background.js styles.css icon.png",
     "publish:firefox": "npm run build && web-ext sign --source-dir . --api-key $WEB_EXT_API_KEY --api-secret $WEB_EXT_API_SECRET",
     "watch": "npm-run-all --parallel watch:*",
     "watch:manifest": "nodemon --watch manifest.yaml --exec \"npm run build:manifest\"",
     "watch:popup": "nodemon --watch popup.pug --exec \"npm run build:popup\"",
     "watch:background": "nodemon --watch background.coffee --exec \"npm run build:background\"",
     "watch:popup-js": "nodemon --watch popup.coffee --exec \"npm run build:popup-js\"",
-    "watch:content-js": "nodemon --watch content.coffee --exec \"npm run build:content-js\"",
-    "clean": "rm -f manifest.json firefox-manifest.json popup.html background.js popup.js content.js options.html options.js network-address-collector-chromium.zip network-address-collector-firefox.zip network-address-collector.zip"
+    "clean": "rm -f manifest.json firefox-manifest.json popup.html background.js popup.js options.html options.js network-address-collector-chromium.zip network-address-collector-firefox.zip network-address-collector.zip"
   },
   "devDependencies": {
     "coffeescript": "^2.7.0",
