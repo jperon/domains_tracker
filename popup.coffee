@@ -1,3 +1,4 @@
+# coffeelint: disable=max_line_length
 # Original Console Functions (global scope, captured before any potential redefinition)
 originalConsoleLog = console.log
 originalConsoleWarn = console.warn

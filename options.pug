@@ -8,18 +8,12 @@ html
       .api-help { font-size: 0.9em; margin-bottom: 5px; color: #555; }
       .api-help a { color: #007bff; text-decoration: none; }
       .api-help a:hover { text-decoration: underline; }
-      label { display: inline-block; min-width: 150px; }
+      label { display: inline-block; min-width: 150px; } /* Adjusted min-width for alignment */
       input[type='text'], input[type='number'] { width: 300px; padding: 5px; margin-bottom: 5px; border: 1px solid #ccc; border-radius: 3px;}
       button { margin-top: 10px; }
+      h2 { margin-top: 0; padding-top: 0; } /* Adjust heading margin if needed */
   body
     h1 Domain Tracker Options
-
-    div.option-section
-      h2 Log Settings
-      label(for='maxLogEntries') Max Historical Logs:
-      input(type='number' id='maxLogEntries' name='maxLogEntries' min='50' max='1000' value='200')
-      div(style='font-size:0.8em; color: #777;') (Range: 50-1000. Controls logs shown in popup console.)
-
 
     div.option-section
       h2 API Key Configuration
@@ -38,6 +32,12 @@ html
           | .
       label(for='groqApiKey') Groq API Key:
       input(type='text', id='groqApiKey', name='groqApiKey' size='50')
+
+    div.option-section
+      h2 Log Settings
+      label(for='maxLogEntries') Max Historical Logs:
+      input(type='number' id='maxLogEntries' name='maxLogEntries' min='50' max='1000' value='200')
+      div(style='font-size:0.8em; color: #777;') (Range: 50-1000. Controls logs shown in popup console.)
 
     button#saveButton Save Settings
     div#status(style='margin-top:10px; font-weight:bold;')
