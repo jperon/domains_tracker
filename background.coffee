@@ -1,4 +1,74 @@
 # coffeelint: disable=max_line_length
+# coffeelint: disable=max_line_length
+
+# --- Constants for Log Storage ---
+LOG_STORAGE_KEY = "extension_historical_logs"
+MAX_LOG_ENTRIES = 200 # Max number of log entries to keep
+SCRIPT_NAME = "background" # Identifier for logs from this script
+
+# --- Original Console Functions ---
+originalConsoleLog = console.log
+originalConsoleWarn = console.warn
+originalConsoleError = console.error
+
+# --- Helper for Stringifying Log Arguments ---
+stringifyArgForStorage = (arg) ->
+  if arg is null then "null"
+  else if typeof arg is 'undefined' then "undefined"
+  else if typeof arg is 'object' or Array.isArray(arg)
+    try
+      # Attempt to stringify; might fail for complex objects or circular refs
+      return JSON.stringify(arg, null, 2) # Pretty print for readability
+    catch e
+      # Fallback for non-serializable objects
+      if arg.toString then return arg.toString() # e.g., "[object Object]"
+      else return "[Unserializable Object]"
+  else
+    return String(arg) # Ensure basic types are converted to string
+
+# --- Function to Store Log Entries ---
+storeLogEntry = (level, argsArray) ->
+  # Format the message from all arguments
+  formattedMessage = argsArray.map(stringifyArgForStorage).join(' ')
+
+  logEntry =
+    timestamp: Date.now()
+    script: SCRIPT_NAME
+    level: level
+    message: formattedMessage
+
+  chrome.storage.local.get [LOG_STORAGE_KEY], (data) ->
+    if chrome.runtime.lastError
+      originalConsoleError.call(console, "#{SCRIPT_NAME}: Error retrieving logs for storage:", chrome.runtime.lastError.message)
+      return
+
+    logs = data[LOG_STORAGE_KEY] || []
+    logs.push(logEntry)
+
+    # Trim logs if they exceed the max number of entries
+    if logs.length > MAX_LOG_ENTRIES
+      logs = logs.slice(-MAX_LOG_ENTRIES) # Keep the most recent entries
+
+    chrome.storage.local.set { [LOG_STORAGE_KEY]: logs }, () ->
+      if chrome.runtime.lastError
+        originalConsoleError.call(console, "#{SCRIPT_NAME}: Error saving new log entry:", chrome.runtime.lastError.message)
+      # else
+        # originalConsoleLog.call(console, "#{SCRIPT_NAME}: Log entry stored.") # Optional: confirm log storage
+
+# --- Console Overrides ---
+console.log = (...args) ->
+  originalConsoleLog.apply(console, args)
+  storeLogEntry('log', args)
+
+console.warn = (...args) ->
+  originalConsoleWarn.apply(console, args)
+  storeLogEntry('warn', args)
+
+console.error = (...args) ->
+  originalConsoleError.apply(console, args)
+  storeLogEntry('error', args)
+
+# --- Existing Code Starts Below ---
 # Store domains per tab in chrome.storage.local
 # Using a prefix to avoid conflicts with other storage keys
 TAB_DOMAINS_STORAGE_PREFIX = "tabDomains_"

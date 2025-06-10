@@ -15,7 +15,29 @@ html
     button#show-json-button Show JSON Response
     div#json-response(style='display: none;')
     button#show-console-button Show Console
+    // Console Filters - Added Here
+    div#console-filters(style='display: none;')
+      div.filter-group
+        strong Filter by Script:
+        label
+          input(type="checkbox" id="filter-script-popup" value="popup" checked)
+          | Popup
+        label
+          input(type="checkbox" id="filter-script-background" value="background" checked)
+          | Background
+        label
+          input(type="checkbox" id="filter-script-options" value="options" checked)
+          | Options
+      div.filter-group
+        strong Filter by Level:
+        label
+          input(type="checkbox" id="filter-level-log" value="log" checked)
+          | Log
+        label
+          input(type="checkbox" id="filter-level-warn" value="warn" checked)
+          | Warn
+        label
+          input(type="checkbox" id="filter-level-error" value="error" checked)
+          | Error
     div#console-output(style='display: none;')
-    div#config
-      a(href="options.html" target="_blank") Options
     script(src='popup.js')
