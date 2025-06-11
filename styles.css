@@ -144,3 +144,46 @@ button#show-console-button:hover {
 .brief-red {
   color: red;
 }
+
+/* New styles for console filters */
+#console-filters {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #ccc;
+  background-color: #f9f9f9;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+#console-filters .filter-group {
+  margin-bottom: 8px;
+  display: flex; /* Align items in a row */
+  flex-wrap: wrap; /* Allow wrapping if too many items */
+  align-items: center; /* Vertically align items */
+}
+
+#console-filters .filter-group strong {
+  margin-right: 5px;
+  font-weight: bold;
+}
+
+#console-filters .filter-group label {
+  margin-right: 10px; /* Space between checkboxes */
+  font-weight: normal;
+  display: inline-flex; /* Align checkbox and text */
+  align-items: center;
+}
+
+#console-filters .filter-group input[type="checkbox"] {
+  margin-right: 3px; /* Space between checkbox and its label text */
+}
+
+/* Styles for different log levels in console output */
+.console-log { color: #333; }
+.console-warn { color: #ffa500; font-weight: bold; } /* Orange */
+.console-error { color: #dc3545; font-weight: bold; } /* Red */
+
+/* Styles for log origins */
+.log-origin-popup { /* Default, no specific style needed unless desired */ }
+.log-origin-background { /* Example: maybe a slightly different background or border */ }
+.log-origin-options { /* Example */ }
